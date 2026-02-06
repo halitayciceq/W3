@@ -1,0 +1,60 @@
+-- ============================================
+-- SIPARIŞ OPERASYON GÖREVLERİ - INDEX V2
+-- Tarih: 2026-01-22
+-- NOT: DDL'den ayrı dosya (SQL Server best practice)
+-- ============================================
+
+-- OPS_TASK Index'leri
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_REF' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK'))
+    CREATE INDEX IX_OPS_TASK_REF ON workcube_prod.OPS_TASK (REF_TYPE, REF_ID);
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_ASSIGNED' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK'))
+    CREATE INDEX IX_OPS_TASK_ASSIGNED ON workcube_prod.OPS_TASK (ASSIGNED_EMP_ID);
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_STATUS' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK'))
+    CREATE INDEX IX_OPS_TASK_STATUS ON workcube_prod.OPS_TASK (STATUS_ID);
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_COMPANY' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK'))
+    CREATE INDEX IX_OPS_TASK_COMPANY ON workcube_prod.OPS_TASK (COMPANY_ID);
+GO
+
+-- OPS_TASK_STEP Index
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_STEP_TASK' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_STEP'))
+    CREATE INDEX IX_OPS_TASK_STEP_TASK ON workcube_prod.OPS_TASK_STEP (TASK_ID);
+GO
+
+-- OPS_TASK_AUDIT Index'leri
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_AUDIT_TASK' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_AUDIT'))
+    CREATE INDEX IX_OPS_TASK_AUDIT_TASK ON workcube_prod.OPS_TASK_AUDIT (TASK_ID);
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_AUDIT_DATE' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_AUDIT'))
+    CREATE INDEX IX_OPS_TASK_AUDIT_DATE ON workcube_prod.OPS_TASK_AUDIT (CREATED_DATE);
+GO
+
+-- OPS_TASK_STAGE_SET Index
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_STAGE_SET_TASK' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_STAGE_SET'))
+    CREATE INDEX IX_OPS_TASK_STAGE_SET_TASK ON workcube_prod.OPS_TASK_STAGE_SET (TASK_ID);
+GO
+
+-- OPS_TASK_STAGE_SET_ROW Index
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_STAGE_ROW_SET' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_STAGE_SET_ROW'))
+    CREATE INDEX IX_OPS_TASK_STAGE_ROW_SET ON workcube_prod.OPS_TASK_STAGE_SET_ROW (STAGE_SET_ID);
+GO
+
+-- OPS_TASK_MATRIX_INSTANCE Index
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_MATRIX_TASK' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_MATRIX_INSTANCE'))
+    CREATE INDEX IX_OPS_TASK_MATRIX_TASK ON workcube_prod.OPS_TASK_MATRIX_INSTANCE (TASK_ID);
+GO
+
+-- OPS_TASK_MATRIX_CELL_VALUE Index
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_OPS_TASK_CELL_INSTANCE' AND object_id = OBJECT_ID('workcube_prod.OPS_TASK_MATRIX_CELL_VALUE'))
+    CREATE INDEX IX_OPS_TASK_CELL_INSTANCE ON workcube_prod.OPS_TASK_MATRIX_CELL_VALUE (INSTANCE_ID);
+GO
+
+PRINT 'OPS_TASK Index''leri oluşturuldu.';
+PRINT 'Sonraki adım: OPS_TASK_SP_V2.sql çalıştır';
+GO

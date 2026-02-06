@@ -1,0 +1,378 @@
+﻿<cfsavecontent variable="ay1"><cf_get_lang dictionary_id='57592.Ocak'></cfsavecontent>
+<cfsavecontent variable="ay2"><cf_get_lang dictionary_id='57593.Subat'></cfsavecontent>
+<cfsavecontent variable="ay3"><cf_get_lang dictionary_id='57594.Mart'></cfsavecontent>
+<cfsavecontent variable="ay4"><cf_get_lang dictionary_id='57595.Nisan'></cfsavecontent>
+<cfsavecontent variable="ay5"><cf_get_lang dictionary_id='57596.Mayis'></cfsavecontent>
+<cfsavecontent variable="ay6"><cf_get_lang dictionary_id='57597.Haziran'></cfsavecontent>
+<cfsavecontent variable="ay7"><cf_get_lang dictionary_id='57598.Temmuz'></cfsavecontent>
+<cfsavecontent variable="ay8"><cf_get_lang dictionary_id='57599.Agustos'></cfsavecontent>
+<cfsavecontent variable="ay9"><cf_get_lang dictionary_id='57600.Eylül'></cfsavecontent>
+<cfsavecontent variable="ay10"><cf_get_lang dictionary_id='57601.Ekim'></cfsavecontent>
+<cfsavecontent variable="ay11"><cf_get_lang dictionary_id='57602.Kasim'></cfsavecontent>
+<cfsavecontent variable="ay12"><cf_get_lang dictionary_id='57603.Aralik'></cfsavecontent>
+<cfset ay_listesi = "#ay1#,#ay2#,#ay3#,#ay4#,#ay5#,#ay6#,#ay7#,#ay8#,#ay9#,#ay10#,#ay11#,#ay12#">
+<cfparam name="attributes.money" default="#session.ep.money#,1">
+
+<cfset scenarioActions = createObject("component","V16.add_options.ugilo.cfc.scenario")>
+
+<cfset get_order_plan_rows = scenarioActions.get_order_plan()>
+<cfset our_company = scenarioActions.get_our_company()>
+<cfset get_money_rate = scenarioActions.get_money_rate()>
+<cfif not isDefined("attributes.our_company_ids")>
+    <cfparam name="attributes.our_company_ids" default="#session.ep.company_id#">
+</cfif>
+<cfset get_scen = scenarioActions.get_scen(our_company_ids: attributes.our_company_ids)>
+
+<cfquery name="get_setup_money" dbtype="query">
+    SELECT RATE2 FROM get_money_rate WHERE MONEY = 'USD'
+</cfquery>
+<cfquery name="get_setup_money2" dbtype="query">
+    SELECT RATE2 FROM get_money_rate WHERE MONEY = 'EUR'
+</cfquery>
+
+<cfset dsn = application.systemParam.systemParam().dsn & '_' & session.ep.period_year & '_' & session.ep.company_id>
+<!--- Updated: 2026-01-15 - Fixed table names --->
+<cfquery name="getMonthlyBalance" datasource="#dsn#">
+    DECLARE @KurUSD FLOAT = <cfif get_setup_money.recordcount>#get_setup_money.RATE2#<cfelse>1</cfif>;
+    DECLARE @KurEUR FLOAT = <cfif get_setup_money2.recordcount>#get_setup_money2.RATE2#<cfelse>1</cfif>;
+    DECLARE @Secilen NVARCHAR(10) = <cfqueryparam cfsqltype="cf_sql_varchar" value="#listFirst(attributes.money,',')#">;
+
+    ;WITH Aylar AS (
+        SELECT 1 AS Ay UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL
+        SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL
+        SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL
+        SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+    )
+    , Hareketler AS (
+        SELECT
+            MONTH(AC.ACTION_DATE) AS Ay,
+            ISNULL(ACR.OTHER_CURRENCY, '#session.ep.money#') AS DvzCinsi,
+            SUM(CASE WHEN ACR.BA = 0 THEN ACR.AMOUNT ELSE 0 END) - SUM(CASE WHEN ACR.BA = 1 THEN ACR.AMOUNT ELSE 0 END) AS BakiyeTL,
+            SUM(CASE WHEN ACR.BA = 0 THEN ISNULL(ACR.OTHER_AMOUNT,0) ELSE 0 END) - SUM(CASE WHEN ACR.BA = 1 THEN ISNULL(ACR.OTHER_AMOUNT,0) ELSE 0 END) AS BakiyeDoviz
+        FROM ACCOUNT_CARD_ROWS ACR
+        INNER JOIN ACCOUNT_CARD AC ON ACR.CARD_ID = AC.CARD_ID
+        WHERE (ACR.ACCOUNT_ID LIKE '100%' OR ACR.ACCOUNT_ID LIKE '102%')
+          AND YEAR(AC.ACTION_DATE) = #session.ep.period_year#
+        GROUP BY MONTH(AC.ACTION_DATE), ACR.OTHER_CURRENCY
+    )
+    , KurCevrilmis AS (
+        SELECT 
+            Ay,
+            CASE 
+                WHEN DvzCinsi = '#session.ep.money#' OR DvzCinsi IS NULL THEN BakiyeTL
+                WHEN DvzCinsi = 'USD' THEN BakiyeDoviz * @KurUSD
+                WHEN DvzCinsi IN ('EUR','EURO') THEN BakiyeDoviz * @KurEUR
+                ELSE BakiyeTL
+            END AS BakiyeTL,
+            CASE 
+                WHEN DvzCinsi = 'USD' THEN BakiyeDoviz
+                WHEN DvzCinsi = '#session.ep.money#' OR DvzCinsi IS NULL THEN BakiyeTL / NULLIF(@KurUSD,0)
+                WHEN DvzCinsi IN ('EUR','EURO') THEN (BakiyeDoviz * @KurEUR) / NULLIF(@KurUSD,0)
+                ELSE BakiyeTL / NULLIF(@KurUSD,0)
+            END AS BakiyeUSD,
+            CASE 
+                WHEN DvzCinsi IN ('EUR','EURO') THEN BakiyeDoviz
+                WHEN DvzCinsi = '#session.ep.money#' OR DvzCinsi IS NULL THEN BakiyeTL / NULLIF(@KurEUR,0)
+                WHEN DvzCinsi = 'USD' THEN (BakiyeDoviz * @KurUSD) / NULLIF(@KurEUR,0)
+                ELSE BakiyeTL / NULLIF(@KurEUR,0)
+            END AS BakiyeEUR
+        FROM Hareketler
+    )
+    , AylikToplam AS (
+        SELECT 
+            Ay,
+            SUM(BakiyeTL) AS BakiyeTL,
+            SUM(BakiyeUSD) AS BakiyeUSD,
+            SUM(BakiyeEUR) AS BakiyeEUR
+        FROM KurCevrilmis
+        GROUP BY Ay
+    )
+    SELECT 
+        A.Ay,
+        CASE 
+            WHEN @Secilen = 'USD' THEN CAST(ISNULL(T.BakiyeUSD,0) AS DECIMAL(18,2))
+            WHEN @Secilen IN ('EUR','EURO') THEN CAST(ISNULL(T.BakiyeEUR,0) AS DECIMAL(18,2))
+            ELSE CAST(ISNULL(T.BakiyeTL,0) AS DECIMAL(18,2))
+        END AS [T_BAKIYE],
+        @Secilen AS ParaBirimi
+    FROM Aylar A
+    LEFT JOIN AylikToplam T ON T.Ay = A.Ay
+    ORDER BY A.Ay;
+</cfquery>
+
+<cfset dip_top_kasa_banka_total = dip_top_kasa_banka_total2= dip_top_cek_total = dip_top_tahsil_cek_total = dip_top_krediler_ve_diger_total = dip_top_cari_emanet_total = dip_top_cari_tashilat = dip_top_avans_tahsilat = dip_top_tahsilat = dip_top = 0>
+<cfset dip_top_cikis_cek_total = dip_top_odenen_cikis_cek_total = dip_top_cikis_krediler_total = dip_top_odenen_cikis_krediler_total = dip_top_cikis_maaslar_total = dip_top_cikis_kk_total = dip_top_giris_kk_total = dip_top_cikis_diger_total = dip_top_cikis_cari_odeme_total = dip_top_cikis_avans_odeme_total = dip_top_cikis_emanet_odeme_total = dip_top_cikis_diger_odeme_total = 0>
+<cfset dip_top_nakit_cikislar_toplam = dip_top_bakiye = dip_top_yurtici_alicilar_total = dip_top_yurtdisi_alicilar_total = fon_bakiye_dip_toplam = 0>
+<div class="col col-12">
+<cfform name="akis" id="akis">
+    <cf_box title="Nakit Akış Tablosu">
+        <cf_grid_list sort="0">
+            <thead>
+                <tr>
+                    <th colspan="3" class="text-center">
+                        <div class="col col-6">
+                            <cf_multiselect_check 
+										query_name="our_company"  
+										name="our_company_ids"
+										option_value="comp_id"
+										option_name="nick_name"
+										value="#attributes.our_company_ids#">
+                        </div>
+                        <div class="col col-3" style="margin-top:2.5%;">
+                            <select name="money" id="money" onchange="this.form.submit();">
+                                <option value="<cfoutput>#session.ep.money#</cfoutput>,1"<cfif session.ep.money eq listFirst(attributes.money,',')>selected</cfif>><cf_get_lang_main no='265.Döviz'></option>
+                                <cfoutput query="get_money_rate">
+                                    <option value="#money#,#rate1/rate2#"<cfif get_money_rate.money eq listFirst(attributes.money,',')>selected</cfif>>#money#</option>
+                                </cfoutput>
+                            </select>
+                        </div>
+                        <div class="col col-3" style="margin-top:0.5%">
+                            <input type="submit" name="Dök" value="Dök" class="ui-wrk-btn">
+                        </div>
+                    </th>
+                    <th colspan="22" class="text-center text-bold">ARNİKON <cfoutput>#session.ep.period_year#</cfoutput> YILI NAKİT AKIŞ TABLOSU <cfoutput>#listFirst(attributes.money,',')#</cfoutput></th>
+                </tr>
+                <tr>
+                    <th rowspan="2" class="text-center text-bold font-dark" style="background:#b7f3f3">AYLAR</th>
+                    <th colspan="9" class="text-center text-bold font-dark" style="background:#d7bbd5">NAKİT GİRİŞLER</th>
+                    <th colspan="12" class="text-center text-bold font-dark" style="background:#ffdaad">NAKİT ÇIKIŞLAR</th>
+                    <th class="text-center text-bold font-dark">TARİH</th>
+                    <th colspan="2" class="text-center text-bold font-dark"><cfoutput>#dateformat(now(),dateformat_style)#</cfoutput></th>
+                </tr>
+                <tr>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="100 ve 102 bakiye alanından veri gelsin. Sadece banka!!" href ="https://e-arn.arnikon.com/index.cfm?fuseaction=account.list_scale">BANKA</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="Portföy ve bankadaki çek toplamı gelsin." href ="https://e-arn.arnikon.com/index.cfm?fuseaction=cheque.list_cheques">ÇEKLER</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="Tahsil edildi aşamasındaki çek toplamları gelecek" href ="https://e-arn.arnikon.com/index.cfm?fuseaction=cheque.list_cheques">TAHSİL EDİLMİŞ ÇEKLER</th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="Bu bölüm iki ayrı sütunda gösterildi: Birinci sütun Krediler, ikinci sütun ise Diğer (Cari Emanet) sütunu olarak ayrıldı." href="https://e-arn.arnikon.com/index.cfm?fuseaction=report.detail_credit_report">KREDİLER </a></th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="Bu bölüm iki ayrı sütunda gösterildi: Birinci sütun Krediler, ikinci sütun ise Diğer (Cari Emanet) sütunu olarak ayrıldı." href="https://e-arn.arnikon.com/index.cfm?fuseaction=bank.list_bank_actions">EMANET ALIMI</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="Bu kısım ikiye ayrılacak. Cari ve Avans olarak. Cariden avans olarak alınanlar ayrıca gösterilecek.Bunun için işlem tipindeki muhasebeleştirme hesap tipi kullanılsın." href="https://e-arn.arnikon.com/index.cfm?fuseaction=bank.list_bank_actions">AVANS TAHSİLAT</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5"><a title="Bu kısım ikiye ayrılacak. Cari ve Avans olarak. Cariden avans olarak alınanlar ayrıca gösterilecek.Bunun için işlem tipindeki muhasebeleştirme hesap tipi kullanılsın." href="https://e-arn.arnikon.com/index.cfm?fuseaction=bank.list_bank_actions">CARİDEN TAHSİLAT</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#b79b7a" title="Kasa+Banka hariç toplam">TAHSİLAT TOPLAMI</th>
+                    <th class="text-center text-bold font-dark" style="background:#d7bbd5" title="Kümülatif toplamlı hesaplanacak.">TOPLAM</th>
+                    <!--- Çıkışlar --->
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="çek listesindeki ödenmedi aşamasındaki toplam." href="https://e-arn.arnikon.com/index.cfm?fuseaction=cheque.list_cheques">ÖDENMEMİŞ ÇEKLER</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a href="https://e-arn.arnikon.com/index.cfm?fuseaction=cheque.list_cheques">ÖDENEN ÇEKLER</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a href="https://e-arn.arnikon.com/index.cfm?fuseaction=report.detail_credit_report">KALAN KREDİ</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a href="https://e-arn.arnikon.com/index.cfm?fuseaction=report.detail_credit_report">ÖDENEN KREDİ</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad">MAAŞLAR</th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Muhasebeden 309 nolu hesabın borcu aylık."  href="https://e-arn.arnikon.com/index.cfm?fuseaction=account.list_scale">K.KARTI ÖDENENLER</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Emanet" href="">EMANET ÖDEME</a></th>
+                    <!--<th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Muhasebeden 309 nolu hesabın alacağı aylık." href="https://e-arn.arnikon.com/index.cfm?fuseaction=account.list_scale">K.KARTI ÖDENECEKLER</a></th>-->
+                    <!--<th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Nakit akıştadaki bütçelenmiş giderlerin toplamı gelecek. (Gerçekleşenler isteniyor. Bu nedenle bütçe planının gerçekleşen kısmından veri alalım) Maaş kolonu ayrı olduğu için maaş gider kalemleri hariç olarak hesaplayalım.
+                    " href="https://e-arn.arnikon.com/index.cfm?fuseaction=report.detail_budget_report">BÜTÇE GERÇEKLEŞEN</a></th>-->
+                    <!--- <th class="text-center text-bold font-dark" style="background:#ffdaad">SATINALMA</th> --->
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Giden havale işlemindeki ödeme tipi Satınalma Cari Ödemesi olanlar alınacak." href="https://e-arn.arnikon.com/index.cfm?fuseaction=bank.list_bank_actions">CARİ ÖDEME</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Giden havale işlemindeki ödeme tipi Satınalma Avans Ödemesi olanlar alınacak." href="https://e-arn.arnikon.com/index.cfm?fuseaction=bank.list_bank_actions">AVANS ÖDEME</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#ffdaad"><a title="Giden havale işlemindeki ödeme tipi Diğer Ödeme olanlar alınacak." href="https://e-arn.arnikon.com/index.cfm?fuseaction=bank.list_bank_actions">DİĞER ÖDEME</a></th>
+                    <th class="text-center text-bold font-dark" style="background:#f94545">ÖDEMELER TOPLAMI</th>
+                    <th class="text-center text-bold font-dark" style="background:#917070" title="Nakit Giriş Toplam - Nakit Çıkış Ödemeler Toplamı">BAKİYE</th>
+                    <th class="text-center text-bold font-dark">Y.İÇİ ALICILAR</th>
+                    <th class="text-center text-bold font-dark">Y.DIŞI ALICILAR</th>
+                    <th class="text-center text-bold font-dark" style="background:#df9133">FON + / -</th>
+                </tr>
+            </thead>
+            <tbody>
+                <cfoutput query="get_scen">
+                    <cfset kasa_total = banka_total = cek_total = tahsil_cek_total = krediler_ve_diger_total = cari_emanet_total = cari_tashilat = avans_tahsilat = 0>
+                    <cfset cikis_cek_total = cikis_odenen_cek_total = cikis_krediler_total = odenen_cikis_krediler_total = cikis_maaslar_total = cikis_kk_total = giris_kk_total = cikis_diger_total = cikis_cari_odeme_total = cikis_avans_odeme_total = cikis_emanet_odeme_total = diger_odeme_total = cikis_emanet_odenen= 0>
+                    <cfset nakit_girisler_toplam = nakit_cikislar_toplam = yurtici_alicilar_total = yurtdisi_alicilar_total = bakiye = 0>
+                    <tr>
+                        <td class="text-center text-bold font-dark" style="background:##b7f3f3">#ListGetAt(ay_listesi,thedate)# - #session.ep.period_year#</td>
+                        <td class="text-center" title="Banka: #TLFormat(BANK_TOTAL)# Devir: #TLFormat(dip_top_kasa_banka_total2)# Zirve: #TLFormat(filterNum(getMonthlyBalance["T_BAKIYE"][currentrow]))#" style="background:##d7bbd5">
+                            <cfif thedate lte month(now())>
+                                #TLFormat((BANK_TOTAL+filterNum(getMonthlyBalance["T_BAKIYE"][currentrow])+dip_top_kasa_banka_total2)*ListLast(attributes.money,','))#
+                                <cfset banka_total += (BANK_TOTAL+filterNum(getMonthlyBalance["T_BAKIYE"][currentrow])+dip_top_kasa_banka_total2)*ListLast(attributes.money,',')>
+                                <cfset dip_top_kasa_banka_total += banka_total>
+                                <cfset dip_top_kasa_banka_total2 += BANK_TOTAL+filterNum(getMonthlyBalance["T_BAKIYE"][currentrow])>
+                            <cfelse>
+                                0,00
+                            </cfif>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat(BORC_CHEQUE_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cek_total += BORC_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cek_total += BORC_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat(BORC_TAHSIL_CHEQUE_TOTAL*ListLast(attributes.money,','))#
+                            <cfset tahsil_cek_total += BORC_TAHSIL_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_tahsil_cek_total += BORC_TAHSIL_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat(BORC_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,','))#
+                            <cfset krediler_ve_diger_total += BORC_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_krediler_ve_diger_total += BORC_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat((BORC_CARI_EMANET+BORC_KK_EMANET)*ListLast(attributes.money,','))#
+                            <cfset cari_emanet_total += (BORC_CARI_EMANET+BORC_KK_EMANET)*ListLast(attributes.money,',')>
+                            <cfset dip_top_cari_emanet_total += (BORC_CARI_EMANET+BORC_KK_EMANET)*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat(BORC_AVANS_OTHER_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cari_tashilat += BORC_AVANS_OTHER_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cari_tashilat += BORC_AVANS_OTHER_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat(BORC_AVANS_TOTAL*ListLast(attributes.money,','))#
+                            <cfset avans_tahsilat += BORC_AVANS_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_avans_tahsilat += BORC_AVANS_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##b79b7a">
+                            #TLFormat(banka_total+cek_total+tahsil_cek_total+krediler_ve_diger_total+cari_emanet_total+cari_tashilat+avans_tahsilat)#
+                            <cfset dip_top_tahsilat += banka_total+cek_total+krediler_ve_diger_total+cari_emanet_total+cari_tashilat+avans_tahsilat>
+                        </td>
+                        <td class="text-center" style="background:##d7bbd5">
+                            #TLFormat(banka_total+cek_total+tahsil_cek_total+krediler_ve_diger_total+cari_emanet_total+cari_tashilat+avans_tahsilat+dip_top)#
+                            <cfset nakit_girisler_toplam += banka_total+cek_total+tahsil_cek_total+krediler_ve_diger_total+cari_emanet_total+cari_tashilat+avans_tahsilat>
+                            <cfset dip_top += banka_total+cek_total+tahsil_cek_total+krediler_ve_diger_total+cari_emanet_total+cari_tashilat+avans_tahsilat>
+                        </td>
+                        <!--- Çıkışlar --->
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_CHEQUE_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_cek_total += ALACAK_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_cek_total += ALACAK_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_ODENEN_CHEQUE_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_odenen_cek_total += ALACAK_ODENEN_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_odenen_cikis_cek_total += ALACAK_ODENEN_CHEQUE_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_krediler_total += ALACAK_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_krediler_total += ALACAK_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ODENEN_ALACAK_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,','))#
+                            <cfset odenen_cikis_krediler_total += ODENEN_ALACAK_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_odenen_cikis_krediler_total += ODENEN_ALACAK_CREDIT_CONTRACT_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_MAAS_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_maaslar_total += ALACAK_MAAS_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_maaslar_total += ALACAK_MAAS_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(BORC_KK_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_kk_total += BORC_KK_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_kk_total += BORC_KK_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad" alt="Emanet Ödenen">
+                            #TLFormat(ALACAK_EMANET_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_emanet_odeme_total += ALACAK_EMANET_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_emanet_odeme_total += ALACAK_EMANET_TOTAL*ListLast(attributes.money,',')>                        
+                         </td>
+                        <!-- <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_KK_TOTAL*ListLast(attributes.money,','))#
+                            <cfset giris_kk_total += ALACAK_KK_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_giris_kk_total += ALACAK_KK_TOTAL*ListLast(attributes.money,',')>
+                        </td>-->
+                        <!-- <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_DIGER_GIDER_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_diger_total += ALACAK_DIGER_GIDER_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_diger_total += ALACAK_DIGER_GIDER_TOTAL*ListLast(attributes.money,',')>
+                        </td>-->
+                        <!--- <td class="text-center" style="background:##ffdaad">
+                            #TLFormat((ALACAK_AVANS_OTHER_TOTAL+ALACAK_AVANS_TOTAL)*ListLast(attributes.money,','))#
+                            <cfset cikis_cari_odeme_total += (ALACAK_AVANS_OTHER_TOTAL+ALACAK_AVANS_TOTAL)*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_cari_odeme_total += (ALACAK_AVANS_OTHER_TOTAL+ALACAK_AVANS_TOTAL)*ListLast(attributes.money,',')>
+                        </td> --->
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_AVANS_OTHER_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_cari_odeme_total += ALACAK_AVANS_OTHER_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_cari_odeme_total += ALACAK_AVANS_OTHER_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_AVANS_TOTAL*ListLast(attributes.money,','))#
+                            <cfset cikis_avans_odeme_total += ALACAK_AVANS_TOTAL*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_avans_odeme_total += ALACAK_AVANS_TOTAL*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##ffdaad">
+                            #TLFormat(ALACAK_DIGER_ODEME*ListLast(attributes.money,','))#
+                            <cfset diger_odeme_total += ALACAK_DIGER_ODEME*ListLast(attributes.money,',')>
+                            <cfset dip_top_cikis_diger_odeme_total += ALACAK_DIGER_ODEME*ListLast(attributes.money,',')>
+                        </td>
+                        <td class="text-center" style="background:##f94545" title="#cikis_kk_total#">
+                            <!---#TLFormat(cikis_cek_total+cikis_odenen_cek_total+cikis_krediler_total+odenen_cikis_krediler_total+cikis_maaslar_total+cikis_kk_total+giris_kk_total+cikis_diger_total+cikis_cari_odeme_total+cikis_avans_odeme_total+diger_odeme_total)#
+                            <cfset nakit_cikislar_toplam += cikis_cek_total+cikis_odenen_cek_total+cikis_krediler_total+odenen_cikis_krediler_total+cikis_maaslar_total+cikis_kk_total+giris_kk_total+cikis_diger_total+cikis_cari_odeme_total+cikis_avans_odeme_total+diger_odeme_total>
+                            <cfset dip_top_nakit_cikislar_toplam += cikis_cek_total+cikis_odenen_cek_total+cikis_krediler_total+odenen_cikis_krediler_total+cikis_maaslar_total+cikis_kk_total+giris_kk_total+cikis_diger_total+cikis_cari_odeme_total+cikis_avans_odeme_total+diger_odeme_total>--->
+
+                            #TLFormat(cikis_cek_total+cikis_krediler_total+cikis_maaslar_total+cikis_kk_total+cikis_cari_odeme_total+cikis_avans_odeme_total+diger_odeme_total)#
+                            <cfset nakit_cikislar_toplam += cikis_cek_total+cikis_krediler_total+cikis_maaslar_total+cikis_kk_total+cikis_cari_odeme_total+cikis_avans_odeme_total+diger_odeme_total>
+                            <cfset dip_top_nakit_cikislar_toplam += cikis_cek_total+cikis_krediler_total+cikis_maaslar_total+cikis_kk_total+cikis_cari_odeme_total+cikis_avans_odeme_total+diger_odeme_total>
+                        </td>
+                        <td class="text-center" style="background:##917070">
+                            #TLFormat(nakit_girisler_toplam-nakit_cikislar_toplam+dip_top_bakiye)#
+                            <cfset bakiye += nakit_girisler_toplam-nakit_cikislar_toplam>
+                            <cfset dip_top_bakiye += nakit_girisler_toplam-nakit_cikislar_toplam>
+                        </td>
+                        <td class="text-center" style="background:##ffee1f">
+                            <cfquery name="get_plan_rows" dbtype="query">
+                                SELECT * FROM get_order_plan_rows WHERE MONTH_DATE = #THEDATE#
+                            </cfquery>
+                            <cfif get_plan_rows.recordcount>
+                                #TLFormat(get_plan_rows.YURTICI_ALICILAR*ListLast(attributes.money,','))#
+                                <cfset yurtici_alicilar_total += get_plan_rows.YURTICI_ALICILAR*ListLast(attributes.money,',')>
+                                <cfset dip_top_yurtici_alicilar_total += get_plan_rows.YURTICI_ALICILAR*ListLast(attributes.money,',')>
+                            <cfelse>
+                                <cfset yurtici_alicilar_total += 0>
+                                <cfset dip_top_yurtici_alicilar_total += 0>
+                            </cfif>
+                        </td>
+                        <td class="text-center" style="background:##ffee1f">
+                            <cfif get_plan_rows.recordcount>
+                                #TLFormat(get_plan_rows.YURTDISI_ALICILAR*ListLast(attributes.money,','))#
+                                <cfset yurtdisi_alicilar_total += get_plan_rows.YURTDISI_ALICILAR*ListLast(attributes.money,',')>
+                                <cfset dip_top_yurtdisi_alicilar_total += get_plan_rows.YURTDISI_ALICILAR*ListLast(attributes.money,',')>
+                            <cfelse>
+                                <cfset yurtdisi_alicilar_total += 0>
+                                <cfset dip_top_yurtdisi_alicilar_total += 0>
+                            </cfif>
+                        </td>
+                        <td class="text-center" style="background:##df9133">
+                            #TLFormat(nakit_girisler_toplam-nakit_cikislar_toplam+yurtici_alicilar_total+yurtdisi_alicilar_total)#
+                            <cfset fon_bakiye_dip_toplam += nakit_girisler_toplam-nakit_cikislar_toplam+yurtici_alicilar_total+yurtdisi_alicilar_total>
+                        </td>
+                    </tr>
+                </cfoutput>
+            </tbody>
+            <tfoot>
+                <cfoutput>
+                    <tr>
+                        <td class="text-center text-bold font-dark" style="background:##7d7fcf">G.TOPLAM</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_kasa_banka_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cek_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_tahsil_cek_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_krediler_ve_diger_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cari_emanet_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cari_tashilat)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_avans_tahsilat)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_tahsilat)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top)#</td>
+                        <!--- çıkışlar --->
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_cek_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_odenen_cikis_cek_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_krediler_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_odenen_cikis_krediler_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_maaslar_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_kk_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_emanet_odeme_total)#</td>
+                        <!--<td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_giris_kk_total)#</td>-->
+                        <!--<td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_diger_total)#</td>-->
+                        <!--- <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_cari_odeme_total)#</td> --->
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_cari_odeme_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_avans_odeme_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_cikis_diger_odeme_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_nakit_cikislar_toplam)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##4e95ff">#TLFormat(dip_top_bakiye)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_yurtici_alicilar_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(dip_top_yurtdisi_alicilar_total)#</td>
+                        <td class="text-center text-bold font-dark" style="background:##ffb84e">#TLFormat(fon_bakiye_dip_toplam)#</td>
+                    </tr>
+                </cfoutput>
+            </tfoot>
+        </cf_grid_list>
+    </cf_box>
+</cfform>
+</div>
