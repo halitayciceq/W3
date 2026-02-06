@@ -836,6 +836,8 @@
 <cfparam name="attributes.start_date" default="">
 <cfparam name="attributes.finish_date" default="">
 <cfparam name="attributes.country" default="">
+<cfparam name="attributes.my_tasks" default="">
+<cfparam name="attributes.payment_status" default="">
 <cfparam name="attributes.page" default=1>
 <cfparam name="attributes.maxrows" default='#session.ep.maxrows#'>
 <cfset attributes.startrow=((attributes.page-1)*attributes.maxrows)+1>
@@ -913,7 +915,7 @@
             LEFT JOIN SETUP_PRIORITY SP ON P.PRO_PRIORITY_ID = SP.PRIORITY_ID
             LEFT JOIN PROCESS_TYPE_ROWS PTR ON P.PRO_CURRENCY_ID = PTR.PROCESS_ROW_ID
         WHERE 
-            1 = 1
+            (P.COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#"> OR P.COMPANY_ID IS NULL OR P.COMPANY_ID = 0)
             <cfif len(attributes.keyword)>
                 AND (P.PROJECT_NUMBER LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#attributes.keyword#%">
                      OR P.PROJECT_HEAD LIKE <cfqueryparam cfsqltype="cf_sql_varchar" value="%#attributes.keyword#%">)
@@ -935,6 +937,23 @@
             </cfif>
             <cfif len(attributes.finish_date)>
                 AND P.TARGET_FINISH <= <cfqueryparam cfsqltype="cf_sql_timestamp" value="#attributes.finish_date#">
+            </cfif>
+            <cfif len(attributes.my_tasks) AND attributes.my_tasks eq "1">
+                AND (P.PROJECT_EMP_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.employee_id#">
+                     OR P.PROJECT_ID IN (
+                         SELECT DISTINCT O2.PROJECT_ID FROM #DSN3#.ORDERS O2
+                         INNER JOIN OPS_TASK OT2 ON OT2.REF_ID = O2.ORDER_ID AND OT2.REF_TYPE = 'ORDER'
+                         WHERE OT2.ASSIGNED_EMP_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.employee_id#"> AND OT2.IS_ACTIVE = 1
+                     ))
+            </cfif>
+            <cfif len(attributes.payment_status)>
+                <cfif attributes.payment_status eq "paid">
+                    AND P.PROJECT_ID IN (SELECT DISTINCT O3.PROJECT_ID FROM #DSN3#.ORDERS O3 WHERE O3.ORDER_STATUS = 1 AND O3.PROJECT_ID = P.PROJECT_ID AND O3.NETTOTAL > 0 AND EXISTS (SELECT 1 FROM #DSN3#.ORDER_PAYMENT OP WHERE OP.ORDER_ID = O3.ORDER_ID))
+                <cfelseif attributes.payment_status eq "unpaid">
+                    AND P.PROJECT_ID IN (SELECT DISTINCT O3.PROJECT_ID FROM #DSN3#.ORDERS O3 WHERE O3.ORDER_STATUS = 1 AND O3.PROJECT_ID = P.PROJECT_ID AND O3.NETTOTAL > 0 AND NOT EXISTS (SELECT 1 FROM #DSN3#.ORDER_PAYMENT OP WHERE OP.ORDER_ID = O3.ORDER_ID))
+                <cfelseif attributes.payment_status eq "partial">
+                    AND P.PROJECT_ID IN (SELECT DISTINCT O3.PROJECT_ID FROM #DSN3#.ORDERS O3 WHERE O3.ORDER_STATUS = 1 AND O3.PROJECT_ID = P.PROJECT_ID AND O3.NETTOTAL > 0 AND EXISTS (SELECT 1 FROM #DSN3#.ORDER_PAYMENT OP WHERE OP.ORDER_ID = O3.ORDER_ID) AND (SELECT ISNULL(SUM(OP2.PAYMENT_TOTAL),0) FROM #DSN3#.ORDER_PAYMENT OP2 WHERE OP2.ORDER_ID = O3.ORDER_ID) < O3.NETTOTAL)
+                </cfif>
             </cfif>
         ORDER BY 
             P.PROJECT_NUMBER DESC
@@ -982,7 +1001,7 @@
             PW.WORK_CURRENCY_ID
         FROM PRO_WORKS PW
             LEFT JOIN EMPLOYEES E ON PW.PROJECT_EMP_ID = E.EMPLOYEE_ID
-        WHERE PW.PROJECT_ID IN (SELECT PROJECT_ID FROM PRO_PROJECTS)
+        WHERE PW.PROJECT_ID IN (SELECT PROJECT_ID FROM PRO_PROJECTS WHERE COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#"> OR COMPANY_ID IS NULL OR COMPANY_ID = 0)
         AND PW.WORK_STATUS = 1
         ORDER BY 
             PW.PROJECT_ID,
@@ -1039,11 +1058,11 @@
             O.ORDER_STATUS = 1
             AND ((O.PURCHASE_SALES = 1 AND O.ORDER_ZONE = 0) OR (O.PURCHASE_SALES = 0 AND O.ORDER_ZONE = 1))
             AND (
-                O.PROJECT_ID IN (SELECT PROJECT_ID FROM #DSN#.PRO_PROJECTS)
+                O.PROJECT_ID IN (SELECT PROJECT_ID FROM #DSN#.PRO_PROJECTS WHERE COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#"> OR COMPANY_ID IS NULL OR COMPANY_ID = 0)
                 OR EXISTS (
                     SELECT 1 FROM ORDER_ROW ORR 
                     WHERE ORR.ORDER_ID = O.ORDER_ID 
-                    AND ORR.ROW_PROJECT_ID IN (SELECT PROJECT_ID FROM #DSN#.PRO_PROJECTS)
+                    AND ORR.ROW_PROJECT_ID IN (SELECT PROJECT_ID FROM #DSN#.PRO_PROJECTS WHERE COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#"> OR COMPANY_ID IS NULL OR COMPANY_ID = 0)
                 )
             )
         ORDER BY O.PROJECT_ID, O.ORDER_DATE DESC
@@ -1067,7 +1086,7 @@
     <cfquery name="GET_ORDER_ROW_PROJECTS" datasource="#DSN3#">
         SELECT DISTINCT ORDER_ID, ROW_PROJECT_ID 
         FROM ORDER_ROW 
-        WHERE ROW_PROJECT_ID IN (SELECT PROJECT_ID FROM #DSN#.PRO_PROJECTS)
+        WHERE ROW_PROJECT_ID IN (SELECT PROJECT_ID FROM #DSN#.PRO_PROJECTS WHERE COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#"> OR COMPANY_ID IS NULL OR COMPANY_ID = 0)
         AND ORDER_ID IN (SELECT ORDER_ID FROM ORDERS WHERE ORDER_STATUS = 1)
     </cfquery>
     <cfloop query="GET_ORDER_ROW_PROJECTS">
@@ -1387,43 +1406,58 @@
     </div>
 
 <div class="col col-12">
-    <!-- Mini Filters & Search -->
+    <!-- Filtreler -->
     <form method="post" action="<cfoutput>#request.self#?fuseaction=report.detail_report&event=det&report_id=9</cfoutput>" class="bg-white rounded-lg shadow-sm p-3 mb-4">
         <input type="hidden" name="is_form_submitted" value="1">
-        <div class="flex flex-wrap items-center gap-2">
-            <div class="flex-1 min-w-48">
-                <div class="relative">
-                    <i class="fas fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
-                    <input 
-                        type="text" 
-                        name="keyword"
-                        placeholder="Proje No / Adı Ara..."
-                        value="<cfoutput>#attributes.keyword#</cfoutput>"
-                        class="w-full pl-7 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none">
-                </div>
+        <!-- Satır 1: Arama + Kategori + Öncelik + Ödeme -->
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+            <div class="relative" style="min-width:180px;max-width:220px;">
+                <i class="fas fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                <input type="text" name="keyword" placeholder="Proje No / Adı..." value="<cfoutput>#attributes.keyword#</cfoutput>" class="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none">
             </div>
-            
-            <select name="category_id" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none">
+            <select name="category_id" class="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none">
                 <option value="">Tüm Kategoriler</option>
                 <cfloop query="GET_CATEGORIES">
                 <option value="<cfoutput>#MAIN_PROCESS_CAT_ID#</cfoutput>"<cfif attributes.category_id eq MAIN_PROCESS_CAT_ID> selected</cfif>><cfoutput>#MAIN_PROCESS_CAT#</cfoutput></option>
                 </cfloop>
             </select>
-
-            <select name="priority_id" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none">
+            <select name="priority_id" class="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none">
                 <option value="">Tüm Öncelikler</option>
                 <cfloop query="GET_PRIORITIES">
                 <option value="<cfoutput>#PRIORITY_ID#</cfoutput>"<cfif attributes.priority_id eq PRIORITY_ID> selected</cfif>><cfoutput>#PRIORITY#</cfoutput></option>
                 </cfloop>
             </select>
-
-            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 text-sm rounded-lg font-medium transition-colors">
-                <i class="fas fa-search mr-1"></i>Ara
-            </button>
-
-            <button type="button" onclick="exportExcel()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 text-sm rounded-lg font-medium transition-colors">
-                <i class="fas fa-download mr-1"></i>Excel
-            </button>
+            <select name="payment_status" class="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none">
+                <option value="">Ödeme Durumu</option>
+                <option value="paid"<cfoutput><cfif attributes.payment_status eq "paid"> selected</cfif></cfoutput>>Ödemesi Girilmiş</option>
+                <option value="unpaid"<cfoutput><cfif attributes.payment_status eq "unpaid"> selected</cfif></cfoutput>>Ödemesi Girilmemiş</option>
+                <option value="partial"<cfoutput><cfif attributes.payment_status eq "partial"> selected</cfif></cfoutput>>Kısmi Ödeme</option>
+            </select>
+        </div>
+        <!-- Satır 2: Tarih + Görevlilerim + Butonlar -->
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="flex items-center gap-1">
+                <span class="text-xs text-gray-500"><i class="fa fa-calendar"></i></span>
+                <input type="date" name="start_date" value="<cfoutput>#attributes.start_date#</cfoutput>" class="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none" style="width:130px;" placeholder="Başlangıç">
+                <span class="text-xs text-gray-400">—</span>
+                <input type="date" name="finish_date" value="<cfoutput>#attributes.finish_date#</cfoutput>" class="px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none" style="width:130px;" placeholder="Bitiş">
+            </div>
+            <label class="flex items-center gap-1 px-2 py-1.5 text-xs border border-gray-200 rounded-md cursor-pointer hover:bg-blue-50 transition-colors<cfoutput><cfif attributes.my_tasks eq '1'> bg-blue-50 border-blue-400</cfif></cfoutput>">
+                <input type="checkbox" name="my_tasks" value="1"<cfoutput><cfif attributes.my_tasks eq "1"> checked</cfif></cfoutput> class="rounded text-blue-500 focus:ring-blue-400" style="width:13px;height:13px;">
+                <i class="fa fa-user text-blue-500" style="font-size:10px;"></i>
+                <span class="text-gray-600">Görevlerim</span>
+            </label>
+            <div class="flex items-center gap-1 ml-auto">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
+                    <i class="fas fa-search mr-1"></i>Filtrele
+                </button>
+                <a href="<cfoutput>#request.self#?fuseaction=report.detail_report&event=det&report_id=9</cfoutput>" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 text-xs rounded-md font-medium transition-colors" style="text-decoration:none;">
+                    <i class="fas fa-times mr-1"></i>Temizle
+                </a>
+                <button type="button" onclick="exportExcel()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 text-xs rounded-md font-medium transition-colors">
+                    <i class="fas fa-download mr-1"></i>Excel
+                </button>
+            </div>
         </div>
     </form>
 
