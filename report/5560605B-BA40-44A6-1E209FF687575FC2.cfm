@@ -113,11 +113,19 @@
                                 var stageSelect = row.querySelector('select');
                                 if (stageSelect) stageSelect.value = newStageId;
                             }
+                            // Sipariş % güncelle
+                            if (resp.order_pct !== undefined && currentOpenOrderId) {
+                                updateOrderPercentUI(currentOpenOrderId, resp.order_pct);
+                            }
+                            // Proje % güncelle
+                            if (resp.project_pct !== undefined && resp.project_id) {
+                                updateProjectPercentUI(resp.project_id, resp.project_pct);
+                            }
                         }
                     } catch(e) { console.error(e); }
                 }
             };
-            xhr.send('action=update_percent&task_id=' + taskId + '&percent_complete=' + pct + '&status_id=' + newStageId);
+            xhr.send('action=update_percent&task_id=' + taskId + '&percent_complete=' + pct + '&status_id=' + newStageId + '&order_id=' + (currentOpenOrderId || 0));
         }
         
         function updateOrderTaskStage(taskId, stageId, selectEl, isProductionTask) {
@@ -144,13 +152,37 @@
                                     if (pctInput) pctInput.value = newPercent;
                                 }
                             }
+                            // Sipariş % güncelle
+                            if (resp.order_pct !== undefined && currentOpenOrderId) {
+                                updateOrderPercentUI(currentOpenOrderId, resp.order_pct);
+                            }
+                            // Proje % güncelle
+                            if (resp.project_pct !== undefined && resp.project_id) {
+                                updateProjectPercentUI(resp.project_id, resp.project_pct);
+                            }
                         }
                     } catch(e) { console.error(e); }
                 }
             };
-            var sendData = 'action=update_status&task_id=' + taskId + '&status_id=' + stageId;
+            var sendData = 'action=update_status&task_id=' + taskId + '&status_id=' + stageId + '&order_id=' + (currentOpenOrderId || 0);
             if (newPercent >= 0) sendData += '&percent_complete=' + newPercent;
             xhr.send(sendData);
+        }
+        
+        // Sipariş % UI güncelleme
+        function updateOrderPercentUI(orderId, pct) {
+            var orderPctEl = document.getElementById('order-pct-' + orderId);
+            if (orderPctEl) orderPctEl.textContent = Math.round(pct) + '%';
+            var orderProgressEl = document.getElementById('order-progress-' + orderId);
+            if (orderProgressEl) orderProgressEl.style.width = Math.round(pct) + '%';
+        }
+        
+        // Proje % UI güncelleme
+        function updateProjectPercentUI(projectId, pct) {
+            var projPctEl = document.getElementById('project-percent-' + projectId);
+            if (projPctEl) projPctEl.textContent = Math.round(pct) + '%';
+            var projBarEl = document.getElementById('project-bar-' + projectId);
+            if (projBarEl) projBarEl.style.width = Math.round(pct) + '%';
         }
         
         function openOrderTaskDocumentModal(taskId) {
@@ -160,6 +192,37 @@
         function openOrderTaskEdit(taskId) {
             var url = '/V16/sales/form/dsp_ops_task.cfm?task_id=' + taskId + '&ref_type=ORDER&company_id=<cfoutput>#session.ep.company_id#</cfoutput>';
             showTaskFormModal(url);
+        }
+        
+        function openOrderTaskMatrix(orderId, taskId) {
+            var url = '/V16/sales/form/dsp_ops_task_matrix.cfm?task_id=' + taskId + '&ref_type=ORDER&ref_id=' + orderId;
+            
+            var existing = document.getElementById('taskMatrixOverlay');
+            if(existing) existing.remove();
+            
+            var overlay = document.createElement('div');
+            overlay.id = 'taskMatrixOverlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+            overlay.onclick = function(e) { if(e.target === overlay) overlay.remove(); };
+            
+            var modal = document.createElement('div');
+            modal.style.cssText = 'background:white;width:90%;max-width:800px;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
+            
+            var body = document.createElement('div');
+            body.style.cssText = 'max-height:90vh;overflow:auto;';
+            body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Matris yükleniyor...</div>';
+            
+            modal.appendChild(body);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            fetch(url).then(function(r){ return r.text(); }).then(function(html){
+                body.innerHTML = html;
+                var scripts = body.querySelectorAll('script');
+                scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
+            }).catch(function(err){
+                body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
+            });
         }
         
         function addOrderTask(orderId) {
