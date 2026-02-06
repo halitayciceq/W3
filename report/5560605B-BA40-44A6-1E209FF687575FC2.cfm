@@ -1713,7 +1713,7 @@
                                                                                     <cfloop query="GET_ORDER_TASKS">
                                                                                         <cfif GET_ORDER_TASKS.ORDER_ID eq orderId>
                                                                                             <cfset taskIdx = taskIdx + 1>
-                                                                                            <cfset isProductionTask = (findNoCase("URETIM", TASK_HEAD) gt 0 AND HAS_MATRIX eq 1) ? true : false>
+                                                                                            <cfset isProductionTask = (HAS_MATRIX eq 1) ? true : false>
                                                                                             <tr class="ops-task-row" draggable="true" data-task-id="#TASK_ID#">
                                                                                                 <td style="text-align:center;cursor:move;border-left:none;" class="drag-handle"><i class="fa fa-bars" style="font-size:10px;color:##999;"></i></td>
                                                                                                 <td style="text-align:center"><img class="img-circle" src="images/male.jpg" style="width:28px;height:28px;border-radius:50%;" title="#EMPLOYEE_NAME#"></td>

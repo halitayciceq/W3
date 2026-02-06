@@ -124,7 +124,7 @@
 .matrix-loading, .matrix-empty, .matrix-error { text-align: center; padding: 40px; color: #888; font-size: 13px; }
 .matrix-error { color: #d32f2f; }
 
-.matrix-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.matrix-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 
 .matrix-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 4px; min-height: 36px; }
 .matrix-item:hover { background: #f0f0f0; }
