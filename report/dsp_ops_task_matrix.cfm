@@ -130,18 +130,106 @@ var selectedWorkstations = [];
 
 console.log('Matrix params:', {taskId: matrixTaskId, projectId: currentMatrixProjectId, workId: currentMatrixWorkId});
 
+// Tüm istasyon grupları (hardcoded - DB'den bağımsız)
+var allWorkstationGroups = [
+    {workstation_id: 1, name: 'Yanyol İmalat', code: 'YANYOL'},
+    {workstation_id: 2, name: 'Direk İmalat', code: 'DIREK'},
+    {workstation_id: 3, name: 'Kanca Grubu İmalat', code: 'KANCA'},
+    {workstation_id: 4, name: 'Araba Yürüyüş İmalat', code: 'ARABA'}
+];
+
+// Tüm hücre tanımları
+var allDefaultCells = [
+    {cell_def_id: 1, cell_label: 'Yanyol İmalat - Profil Kesim', value_code: '', weight: 1},
+    {cell_def_id: 2, cell_label: 'Yanyol İmalat - Yanyol Grubu Kesim', value_code: '', weight: 1},
+    {cell_def_id: 3, cell_label: 'Yanyol İmalat - Kaynak', value_code: '', weight: 1},
+    {cell_def_id: 4, cell_label: 'Yanyol İmalat - Montaj', value_code: '', weight: 1},
+    {cell_def_id: 5, cell_label: 'Yanyol İmalat - Boya', value_code: '', weight: 1},
+    {cell_def_id: 6, cell_label: 'Direk İmalat - Yük Grubu Kesim', value_code: '', weight: 1},
+    {cell_def_id: 7, cell_label: 'Direk İmalat - Ayak Grubu Kesim', value_code: '', weight: 1},
+    {cell_def_id: 8, cell_label: 'Direk İmalat - Kaynak', value_code: '', weight: 1},
+    {cell_def_id: 9, cell_label: 'Direk İmalat - Boya', value_code: '', weight: 1},
+    {cell_def_id: 10, cell_label: 'Kanca Grubu İmalat - Kanca Grubu Kesim', value_code: '', weight: 1},
+    {cell_def_id: 11, cell_label: 'Kanca Grubu İmalat - Torna', value_code: '', weight: 1},
+    {cell_def_id: 12, cell_label: 'Kanca Grubu İmalat - Kaynak', value_code: '', weight: 1},
+    {cell_def_id: 13, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Kimyasal', value_code: '', weight: 1},
+    {cell_def_id: 14, cell_label: 'Araba Yürüyüş İmalat - A Yürüyüş Boya', value_code: '', weight: 1},
+    {cell_def_id: 15, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Montaj', value_code: '', weight: 1}
+];
+
+function getStorageKey(type) {
+    return 'matrix_' + type + '_order_' + matrixRefId + '_task_' + matrixTaskId;
+}
+
+function getFilteredCells() {
+    var filtered = allDefaultCells.filter(function(cell) {
+        return selectedWorkstations.some(function(ws) {
+            return cell.cell_label.indexOf(ws.name) === 0;
+        });
+    });
+    return filtered.map(function(cell) {
+        return {cell_def_id: cell.cell_def_id, cell_label: cell.cell_label, value_code: '', weight: cell.weight || 1};
+    });
+}
+
+function saveCellValuesToStorage() {
+    var cells = matrixData && (matrixData.cells || matrixData.CELLS);
+    if (cells) {
+        var cellValues = {};
+        for (var i = 0; i < cells.length; i++) {
+            var cid = cells[i].cell_def_id || cells[i].CELL_DEF_ID;
+            cellValues[cid] = cells[i].value_code || cells[i].VALUE_CODE || '';
+        }
+        localStorage.setItem(getStorageKey('cells'), JSON.stringify(cellValues));
+    }
+}
+
+function loadSavedCellValues(cells) {
+    try {
+        var saved = localStorage.getItem(getStorageKey('cells'));
+        if (saved) {
+            var cellValues = JSON.parse(saved);
+            for (var i = 0; i < cells.length; i++) {
+                var cid = cells[i].cell_def_id || cells[i].CELL_DEF_ID;
+                if (cellValues[cid] !== undefined && cellValues[cid] !== '') {
+                    cells[i].value_code = cellValues[cid];
+                }
+            }
+        }
+    } catch(e) { console.log('loadSavedCellValues hata:', e); }
+    return cells;
+}
+
+function renderFilteredMatrix() {
+    var filteredCells = getFilteredCells();
+    filteredCells = loadSavedCellValues(filteredCells);
+    matrixData = {cells: filteredCells};
+    renderMatrix(matrixData);
+    calcMatrixPercent();
+}
+
 function initMatrix() {
     var content = document.getElementById('matrixContent');
     if(!content) {
-        console.log('matrixContent not found, retrying...');
         setTimeout(initMatrix, 50);
         return;
     }
-    if(currentMatrixProjectId > 0 && currentMatrixWorkId > 0) {
-        loadMatrixData();
-    } else {
-        renderDefaultMatrix();
-    }
+    
+    // localStorage'dan seçili istasyonları al
+    try {
+        var savedWs = localStorage.getItem(getStorageKey('ws'));
+        if (savedWs) {
+            var parsed = JSON.parse(savedWs);
+            if (parsed && parsed.length > 0) {
+                selectedWorkstations = parsed;
+                renderFilteredMatrix();
+                return;
+            }
+        }
+    } catch(e) { console.log('localStorage okuma hatası:', e); }
+    
+    // İstasyon seçimi yok → seçim ekranını göster
+    renderWorkstationSelect(allWorkstationGroups, false);
 }
 
 setTimeout(initMatrix, 10);
@@ -191,26 +279,20 @@ function loadMatrixData() {
 }
 
 function renderDefaultMatrix() {
-    var defaultCells = [
-        {cell_def_id: 1, cell_label: 'Yanyol İmalat - Profil Kesim', value_code: ''},
-        {cell_def_id: 2, cell_label: 'Yanyol İmalat - Yanyol Grubu Kesim', value_code: ''},
-        {cell_def_id: 3, cell_label: 'Yanyol İmalat - Kaynak', value_code: ''},
-        {cell_def_id: 4, cell_label: 'Yanyol İmalat - Montaj', value_code: ''},
-        {cell_def_id: 5, cell_label: 'Yanyol İmalat - Boya', value_code: ''},
-        {cell_def_id: 6, cell_label: 'Direk İmalat - Yük Grubu Kesim', value_code: ''},
-        {cell_def_id: 7, cell_label: 'Direk İmalat - Ayak Grubu Kesim', value_code: ''},
-        {cell_def_id: 8, cell_label: 'Direk İmalat - Kaynak', value_code: ''},
-        {cell_def_id: 9, cell_label: 'Direk İmalat - Boya', value_code: ''},
-        {cell_def_id: 10, cell_label: 'Kanca Grubu İmalat - Kanca Grubu Kesim', value_code: ''},
-        {cell_def_id: 11, cell_label: 'Kanca Grubu İmalat - Torna', value_code: ''},
-        {cell_def_id: 12, cell_label: 'Kanca Grubu İmalat - Kaynak', value_code: ''},
-        {cell_def_id: 13, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Kimyasal', value_code: ''},
-        {cell_def_id: 14, cell_label: 'Araba Yürüyüş İmalat - A Yürüyüş Boya', value_code: ''},
-        {cell_def_id: 15, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Montaj', value_code: ''}
-    ];
-    matrixData = {cells: defaultCells};
-    renderMatrix(matrixData);
-    calcMatrixPercent();
+    // localStorage'da seçili istasyon varsa filtrelenmiş göster
+    try {
+        var savedWs = localStorage.getItem(getStorageKey('ws'));
+        if (savedWs) {
+            var parsed = JSON.parse(savedWs);
+            if (parsed && parsed.length > 0) {
+                selectedWorkstations = parsed;
+                renderFilteredMatrix();
+                return;
+            }
+        }
+    } catch(e) {}
+    // İstasyon seçimi yok → seçim ekranını göster
+    renderWorkstationSelect(allWorkstationGroups, false);
 }
 
 function renderWorkstationSelect(workstations, isEditMode) {
@@ -283,44 +365,16 @@ function saveWorkstationSelection() {
         return;
     }
     
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/V16/project/form/ajax_task_matrix.cfm', true);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.withCredentials = true;
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            try {
-                var resp = JSON.parse(xhr.responseText);
-                if (resp.success || resp.SUCCESS) {
-                    loadMatrixData();
-                } else {
-                    alert('Hata: ' + (resp.message || resp.MESSAGE));
-                }
-            } catch(e) {
-                console.error('JSON parse error:', e);
-            }
-        }
-    };
-    xhr.send('action=ws_save&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId + '&json_workstations=' + encodeURIComponent(JSON.stringify(selectedWorkstations)));
+    // localStorage'a kaydet
+    localStorage.setItem(getStorageKey('ws'), JSON.stringify(selectedWorkstations));
+    
+    // Filtrelenmiş matrisi render et
+    renderFilteredMatrix();
 }
 
 function editWorkstations() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/V16/project/form/ajax_task_matrix.cfm?action=ws_list&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId, true);
-    xhr.withCredentials = true;
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            try {
-                var resp = JSON.parse(xhr.responseText);
-                if (resp.success || resp.SUCCESS) {
-                    renderWorkstationSelect(resp.workstations || resp.WORKSTATIONS || [], true);
-                }
-            } catch(e) {
-                console.error('JSON parse error:', e);
-            }
-        }
-    };
-    xhr.send();
+    // Hardcoded istasyon listesini göster (mevcut seçimlerle)
+    renderWorkstationSelect(allWorkstationGroups, true);
 }
 
 function renderMatrix(data) {
@@ -407,6 +461,7 @@ function selectMatrixValue(cellDefId, valueCode, btn) {
     }
     
     calcMatrixPercent();
+    saveCellValuesToStorage();
 }
 
 function resetMatrix() {
@@ -423,6 +478,7 @@ function resetMatrix() {
     });
     
     calcMatrixPercent();
+    saveCellValuesToStorage();
 }
 
 function calcMatrixPercentValue() {
@@ -458,43 +514,14 @@ function calcMatrixPercent() {
 }
 
 function saveMatrix() {
-    var cells = matrixData && (matrixData.cells || matrixData.CELLS);
-    if (!cells || cells.length === 0) {
-        var pct = parseInt(document.getElementById('matrixPercent').textContent.replace('%', '')) || 0;
-        updateOpsTaskPercent(pct);
-        return;
-    }
+    // Hücre değerlerini localStorage'a kaydet
+    saveCellValuesToStorage();
     
-    var jsonValues = [];
-    for (var i = 0; i < cells.length; i++) {
-        var cell = cells[i];
-        var cellDefId = cell.cell_def_id || cell.CELL_DEF_ID;
-        var valueCode = (cell.value_code || cell.VALUE_CODE || '').toUpperCase();
-        jsonValues.push({cell_def_id: cellDefId, value_code: valueCode});
-    }
+    // Frontend'de % hesapla
+    var pct = Math.round(calcMatrixPercentValue());
     
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/V16/project/form/ajax_task_matrix.cfm', true);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.withCredentials = true;
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            try {
-                var resp = JSON.parse(xhr.responseText);
-                if (resp.success || resp.SUCCESS) {
-                    var frontendPct = calcMatrixPercentValue();
-                    var calcPct = resp.calc_percent || resp.CALC_PERCENT || frontendPct;
-                    updateOpsTaskPercent(Math.round(calcPct));
-                } else {
-                    alert('Kayıt hatası: ' + (resp.message || resp.MESSAGE));
-                }
-            } catch(e) {
-                console.error('JSON parse error:', e);
-                alert('Sunucu yanıt hatası');
-            }
-        }
-    };
-    xhr.send('action=save&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId + '&template_code=URETIM_SURECI&json_values=' + encodeURIComponent(JSON.stringify(jsonValues)));
+    // OPS_TASK % güncelle (doğru endpoint)
+    updateOpsTaskPercent(pct);
 }
 
 function updateOpsTaskPercent(pct) {
@@ -506,8 +533,47 @@ function updateOpsTaskPercent(pct) {
     fetch('/V16/sales/query/ajax_ops_task.cfm', {method: 'POST', body: fd})
     .then(function(r) { return r.json(); })
     .then(function(resp) {
-        document.getElementById('taskMatrixOverlay').remove();
+        // Modal kapat
+        var overlay = document.getElementById('taskMatrixOverlay');
+        if(overlay) overlay.remove();
+        
+        // Task satırındaki % ve aşamayı güncelle
+        try {
+            var taskRow = document.querySelector('tr.ops-task-row[data-task-id="' + matrixTaskId + '"]');
+            if (taskRow) {
+                var pctInput = taskRow.querySelector('input[type="number"]');
+                if (pctInput) pctInput.value = pct;
+                
+                var stageSelect = taskRow.querySelector('select');
+                if (stageSelect) {
+                    if (pct >= 100) stageSelect.value = '2364';
+                    else if (pct > 0) stageSelect.value = '2361';
+                }
+            }
+            
+            // Sipariş % güncelle
+            var orderPct = resp.order_pct || resp.ORDER_PCT;
+            if (orderPct !== undefined && typeof updateOrderPercentUI === 'function') {
+                updateOrderPercentUI(matrixRefId, orderPct);
+            }
+            
+            // Proje % güncelle
+            var projectPct = resp.project_pct || resp.PROJECT_PCT;
+            var projectId = resp.project_id || resp.PROJECT_ID;
+            if (projectPct !== undefined && projectId) {
+                var projBar = document.getElementById('project-bar-' + projectId);
+                var projText = document.getElementById('project-percent-' + projectId);
+                if (projBar) projBar.style.width = Math.round(projectPct) + '%';
+                if (projText) projText.textContent = Math.round(projectPct) + '%';
+            }
+        } catch(e) { console.log('UI güncelleme hatası:', e); }
+        
         if(typeof OpsTask !== 'undefined') OpsTask.loadList();
+    })
+    .catch(function(err) {
+        console.error('Kayıt hatası:', err);
+        var overlay = document.getElementById('taskMatrixOverlay');
+        if(overlay) overlay.remove();
     });
 }
 
