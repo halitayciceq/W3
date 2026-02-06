@@ -2,12 +2,22 @@
 <cfparam name="url.task_id" default="0">
 <cfparam name="url.ref_type" default="ORDER">
 <cfparam name="url.ref_id" default="0">
-<!--- Matris artık ORDER-TASK yapısına bağlı, proje ID'sine gerek yok --->
+<cfparam name="url.project_id" default="0">
+<cfparam name="url.work_id" default="0">
+
+<!--- Sipariş'ten project_id al --->
+<cfif url.ref_type EQ "ORDER" AND val(url.ref_id) GT 0>
+    <cftry>
+        <cfquery name="qOrder" datasource="#dsn3#">
+            SELECT PROJECT_ID FROM ORDERS WHERE ORDER_ID = <cfqueryparam value="#url.ref_id#" cfsqltype="cf_sql_integer">
+        </cfquery>
+        <cfif qOrder.recordCount AND val(qOrder.PROJECT_ID) GT 0>
+            <cfset url.project_id = qOrder.PROJECT_ID>
+        </cfif>
+    <cfcatch></cfcatch>
+    </cftry>
+</cfif>
 </cfsilent>
-<!--- DEBUG: Parametreleri göster --->
-<script>
-console.log('Matrix DEBUG - task_id: <cfoutput>#val(url.task_id)#</cfoutput>, ref_type: <cfoutput>#url.ref_type#</cfoutput>, ref_id (order_id): <cfoutput>#val(url.ref_id)#</cfoutput>');
-</script>
 <!--- Üretim Matrisi - Proje Modülünden Bire Bir Alındı --->
 <div class="matrix-modal">
     <div class="matrix-header">
@@ -113,10 +123,12 @@ console.log('Matrix DEBUG - task_id: <cfoutput>#val(url.task_id)#</cfoutput>, re
 var matrixTaskId = <cfoutput>#val(url.task_id)#</cfoutput>;
 var matrixRefType = '<cfoutput>#url.ref_type#</cfoutput>';
 var matrixRefId = <cfoutput>#val(url.ref_id)#</cfoutput>;
+var currentMatrixProjectId = <cfoutput>#val(url.project_id)#</cfoutput>;
+var currentMatrixWorkId = <cfoutput>#val(url.work_id)#</cfoutput> || matrixTaskId;
 var matrixData = null;
 var selectedWorkstations = [];
 
-console.log('Matrix params:', {taskId: matrixTaskId, refType: matrixRefType, refId: matrixRefId});
+console.log('Matrix params:', {taskId: matrixTaskId, projectId: currentMatrixProjectId, workId: currentMatrixWorkId});
 
 function initMatrix() {
     var content = document.getElementById('matrixContent');
@@ -125,87 +137,80 @@ function initMatrix() {
         setTimeout(initMatrix, 50);
         return;
     }
-    
-    // localStorage'dan kaydedilmiş istasyonları yükle
-    var wsKey = 'matrix_ws_order_' + matrixRefId + '_task_' + matrixTaskId;
-    var savedWS = localStorage.getItem(wsKey);
-    if (savedWS) {
-        try {
-            selectedWorkstations = JSON.parse(savedWS);
-            console.log('İstasyonlar localStorage\'dan yüklendi:', selectedWorkstations);
-        } catch(e) {
-            selectedWorkstations = [];
-        }
-    }
-    
-    // localStorage'dan kaydedilmiş matris değerlerini yükle
-    var valuesKey = 'matrix_values_order_' + matrixRefId + '_task_' + matrixTaskId;
-    var savedValues = localStorage.getItem(valuesKey);
-    var loadedValues = null;
-    if (savedValues) {
-        try {
-            loadedValues = JSON.parse(savedValues);
-            console.log('Matris değerleri localStorage\'dan yüklendi:', loadedValues);
-        } catch(e) {}
-    }
-    
-    // Kaydedilmiş istasyon varsa matrisi göster, yoksa istasyon seçimi
-    if (selectedWorkstations.length > 0) {
-        renderDefaultMatrixWithValues(loadedValues);
+    if(currentMatrixProjectId > 0 && currentMatrixWorkId > 0) {
+        loadMatrixData();
     } else {
-        // İstasyon seçimi ekranını göster
-        editWorkstations();
+        renderDefaultMatrix();
     }
 }
 
 setTimeout(initMatrix, 10);
 
 function loadMatrixData() {
-    // Sipariş-Task bazlı matris - localStorage'dan yükle
-    console.log('loadMatrixData - using localStorage for order-task matrix');
-    renderDefaultMatrix();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/V16/project/form/ajax_task_matrix.cfm?action=get&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId + '&template_code=URETIM_SURECI', true);
+    xhr.withCredentials = true;
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    console.log('Matrix response:', resp);
+                    
+                    if (resp.success || resp.SUCCESS) {
+                        matrixData = resp;
+                        var resultType = resp.result_type || resp.RESULT_TYPE || 'MATRIX';
+                        
+                        if (resultType === 'SELECT_WS') {
+                            selectedWorkstations = resp.selected_workstations || [];
+                            renderWorkstationSelect(resp.workstations || resp.WORKSTATIONS || [], false);
+                        } else {
+                            var cells = resp.cells || resp.CELLS || [];
+                            if (cells.length > 0) {
+                                selectedWorkstations = resp.selected_workstations || [];
+                                renderMatrix(resp);
+                                calcMatrixPercent();
+                            } else {
+                                renderDefaultMatrix();
+                            }
+                        }
+                    } else {
+                        renderDefaultMatrix();
+                    }
+                } catch(e) {
+                    console.error('JSON parse error:', e);
+                    renderDefaultMatrix();
+                }
+            } else {
+                console.error('Matrix AJAX error:', xhr.status);
+                renderDefaultMatrix();
+            }
+        }
+    };
+    xhr.send();
 }
 
 function renderDefaultMatrix() {
-    renderDefaultMatrixWithValues(null);
-}
-
-function renderDefaultMatrixWithValues(savedValues) {
-    // Seçilen istasyonlar varsa onlara göre hücre oluştur, yoksa boş göster
-    if (selectedWorkstations && selectedWorkstations.length > 0) {
-        var defaultCells = [];
-        var cellId = 1;
-        for (var i = 0; i < selectedWorkstations.length; i++) {
-            var ws = selectedWorkstations[i];
-            var wsName = ws.name || ws.NAME || '';
-            // Her istasyon için örnek alt süreçler
-            var subProcesses = ['Kesim', 'Kaynak', 'Montaj', 'Boya'];
-            for (var j = 0; j < subProcesses.length; j++) {
-                var cellLabel = wsName + ' - ' + subProcesses[j];
-                var valueCode = '';
-                // Kaydedilmiş değer varsa kullan (cell_label ile eşleştir)
-                if (savedValues) {
-                    for (var k = 0; k < savedValues.length; k++) {
-                        if (savedValues[k].cell_label === cellLabel) {
-                            valueCode = savedValues[k].value_code || '';
-                            break;
-                        }
-                    }
-                }
-                defaultCells.push({
-                    cell_def_id: cellId++,
-                    cell_label: cellLabel,
-                    value_code: valueCode
-                });
-            }
-        }
-        matrixData = {cells: defaultCells};
-        renderMatrix(matrixData);
-        calcMatrixPercent();
-    } else {
-        // Hiç istasyon seçilmemişse istasyon seçimi ekranını göster
-        document.getElementById('matrixContent').innerHTML = '<div class="matrix-empty">Önce istasyon seçimi yapmalısınız. Üstteki "İstasyonlar" butonuna tıklayın.</div>';
-    }
+    var defaultCells = [
+        {cell_def_id: 1, cell_label: 'Yanyol İmalat - Profil Kesim', value_code: ''},
+        {cell_def_id: 2, cell_label: 'Yanyol İmalat - Yanyol Grubu Kesim', value_code: ''},
+        {cell_def_id: 3, cell_label: 'Yanyol İmalat - Kaynak', value_code: ''},
+        {cell_def_id: 4, cell_label: 'Yanyol İmalat - Montaj', value_code: ''},
+        {cell_def_id: 5, cell_label: 'Yanyol İmalat - Boya', value_code: ''},
+        {cell_def_id: 6, cell_label: 'Direk İmalat - Yük Grubu Kesim', value_code: ''},
+        {cell_def_id: 7, cell_label: 'Direk İmalat - Ayak Grubu Kesim', value_code: ''},
+        {cell_def_id: 8, cell_label: 'Direk İmalat - Kaynak', value_code: ''},
+        {cell_def_id: 9, cell_label: 'Direk İmalat - Boya', value_code: ''},
+        {cell_def_id: 10, cell_label: 'Kanca Grubu İmalat - Kanca Grubu Kesim', value_code: ''},
+        {cell_def_id: 11, cell_label: 'Kanca Grubu İmalat - Torna', value_code: ''},
+        {cell_def_id: 12, cell_label: 'Kanca Grubu İmalat - Kaynak', value_code: ''},
+        {cell_def_id: 13, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Kimyasal', value_code: ''},
+        {cell_def_id: 14, cell_label: 'Araba Yürüyüş İmalat - A Yürüyüş Boya', value_code: ''},
+        {cell_def_id: 15, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Montaj', value_code: ''}
+    ];
+    matrixData = {cells: defaultCells};
+    renderMatrix(matrixData);
+    calcMatrixPercent();
 }
 
 function renderWorkstationSelect(workstations, isEditMode) {
@@ -278,19 +283,30 @@ function saveWorkstationSelection() {
         return;
     }
     
-    // Sipariş bazlı matris için localStorage'da sakla
-    var storageKey = 'matrix_ws_order_' + matrixRefId + '_task_' + matrixTaskId;
-    localStorage.setItem(storageKey, JSON.stringify(selectedWorkstations));
-    console.log('İstasyonlar kaydedildi:', storageKey, selectedWorkstations);
-    
-    // Matris'i seçilen istasyonlarla göster
-    renderDefaultMatrix();
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/V16/project/form/ajax_task_matrix.cfm', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.withCredentials = true;
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success || resp.SUCCESS) {
+                    loadMatrixData();
+                } else {
+                    alert('Hata: ' + (resp.message || resp.MESSAGE));
+                }
+            } catch(e) {
+                console.error('JSON parse error:', e);
+            }
+        }
+    };
+    xhr.send('action=ws_save&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId + '&json_workstations=' + encodeURIComponent(JSON.stringify(selectedWorkstations)));
 }
 
 function editWorkstations() {
-    // İstasyon listesini DB'den dinamik çek
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/V16/project/form/ajax_task_matrix.cfm?action=ws_list', true);
+    xhr.open('GET', '/V16/project/form/ajax_task_matrix.cfm?action=ws_list&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId, true);
     xhr.withCredentials = true;
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
@@ -317,33 +333,15 @@ function renderMatrix(data) {
     document.querySelector('.btn-ws-edit').style.display = '';
     document.querySelector('.matrix-legend').style.display = '';
     
-    // Seçilen istasyonlara göre filtrele
-    var filteredCells = cells;
-    if (selectedWorkstations && selectedWorkstations.length > 0) {
-        var selectedNames = selectedWorkstations.map(function(ws) { 
-            return (ws.name || ws.NAME || '').toLowerCase(); 
-        });
-        filteredCells = cells.filter(function(cell) {
-            var label = (cell.cell_label || cell.CELL_LABEL || '').toLowerCase();
-            // Hücre etiketinin seçilen istasyonlardan biriyle başlayıp başlamadığını kontrol et
-            for (var k = 0; k < selectedNames.length; k++) {
-                if (label.indexOf(selectedNames[k]) === 0 || label.indexOf(selectedNames[k] + ' -') !== -1) {
-                    return true;
-                }
-            }
-            return false;
-        });
-    }
-    
-    if (filteredCells.length === 0) {
-        document.getElementById('matrixContent').innerHTML = '<div class="matrix-empty">Seçilen istasyonlar için hücre tanımı yok.</div>';
+    if (cells.length === 0) {
+        document.getElementById('matrixContent').innerHTML = '<div class="matrix-empty">Hücre tanımı yok.</div>';
         return;
     }
     
     var html = '<div class="matrix-grid">';
     
-    for (var i = 0; i < filteredCells.length; i++) {
-        var cell = filteredCells[i];
+    for (var i = 0; i < cells.length; i++) {
+        var cell = cells[i];
         var cellDefId = cell.cell_def_id || cell.CELL_DEF_ID;
         var cellLabel = cell.cell_label || cell.CELL_LABEL || 'Hücre ' + (i+1);
         var currentValue = cell.value_code || cell.VALUE_CODE || '';
@@ -467,63 +465,49 @@ function saveMatrix() {
         return;
     }
     
-    // Hücre değerlerini topla (label ile kaydet - daha güvenilir)
     var jsonValues = [];
     for (var i = 0; i < cells.length; i++) {
         var cell = cells[i];
-        var cellLabel = cell.cell_label || cell.CELL_LABEL || '';
+        var cellDefId = cell.cell_def_id || cell.CELL_DEF_ID;
         var valueCode = (cell.value_code || cell.VALUE_CODE || '').toUpperCase();
-        jsonValues.push({cell_label: cellLabel, value_code: valueCode});
+        jsonValues.push({cell_def_id: cellDefId, value_code: valueCode});
     }
     
-    // localStorage'a kaydet (sipariş bazlı)
-    var valuesKey = 'matrix_values_order_' + matrixRefId + '_task_' + matrixTaskId;
-    localStorage.setItem(valuesKey, JSON.stringify(jsonValues));
-    console.log('Matris değerleri kaydedildi:', valuesKey, jsonValues);
-    
-    // Yüzdeyi hesapla ve OPS_TASK'a kaydet
-    var pct = calcMatrixPercentValue();
-    updateOpsTaskPercent(Math.round(pct));
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/V16/project/form/ajax_task_matrix.cfm', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.withCredentials = true;
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (resp.success || resp.SUCCESS) {
+                    var frontendPct = calcMatrixPercentValue();
+                    var calcPct = resp.calc_percent || resp.CALC_PERCENT || frontendPct;
+                    updateOpsTaskPercent(Math.round(calcPct));
+                } else {
+                    alert('Kayıt hatası: ' + (resp.message || resp.MESSAGE));
+                }
+            } catch(e) {
+                console.error('JSON parse error:', e);
+                alert('Sunucu yanıt hatası');
+            }
+        }
+    };
+    xhr.send('action=save&project_id=' + currentMatrixProjectId + '&work_id=' + currentMatrixWorkId + '&template_code=URETIM_SURECI&json_values=' + encodeURIComponent(JSON.stringify(jsonValues)));
 }
 
 function updateOpsTaskPercent(pct) {
-    console.log('Updating OPS_TASK percent:', matrixTaskId, pct);
-    
     var fd = new FormData();
     fd.append('action', 'update_percent');
     fd.append('task_id', matrixTaskId);
     fd.append('percent_complete', pct);
     
-    // Aşama da hesapla
-    var statusId = 2358; // Planlama
-    if (pct === 0) statusId = 2359; // İş Atandı
-    else if (pct > 0 && pct < 100) statusId = 2361; // Devam Ediyor
-    else if (pct >= 100) statusId = 2364; // Tamamlandı
-    fd.append('status_id', statusId);
-    
     fetch('/V16/sales/query/ajax_ops_task.cfm', {method: 'POST', body: fd})
     .then(function(r) { return r.json(); })
     .then(function(resp) {
-        console.log('OPS_TASK update response:', resp);
-        
-        // Task satırındaki % ve aşamayı güncelle (postback olmadan)
-        var pctInput = document.getElementById('order-task-pct-' + matrixTaskId);
-        if (pctInput) pctInput.value = pct;
-        
-        // Aşama dropdown'ını güncelle
-        var taskRow = pctInput ? pctInput.closest('tr') : null;
-        if (taskRow) {
-            var stageSelect = taskRow.querySelector('select');
-            if (stageSelect) stageSelect.value = statusId;
-        }
-        
-        // Overlay'i kapat
-        var overlay = document.getElementById('taskMatrixOverlay');
-        if (overlay) overlay.remove();
-    })
-    .catch(function(err) {
-        console.error('OPS_TASK update error:', err);
-        alert('Kaydetme hatası: ' + err.message);
+        document.getElementById('taskMatrixOverlay').remove();
+        if(typeof OpsTask !== 'undefined') OpsTask.loadList();
     });
 }
 

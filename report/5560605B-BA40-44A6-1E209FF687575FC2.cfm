@@ -55,219 +55,6 @@
                 }
             };
         }
-        
-        // Sipariş Task Listesi Toggle
-        var currentOpenOrderId = null;
-        function toggleOrderTasks(orderId, buttonEl) {
-            var taskRow = document.getElementById('order-tasks-' + orderId);
-            if (!taskRow) return;
-            if (currentOpenOrderId === orderId) {
-                taskRow.style.display = 'none';
-                currentOpenOrderId = null;
-                return;
-            }
-            if (currentOpenOrderId !== null) {
-                var prevRow = document.getElementById('order-tasks-' + currentOpenOrderId);
-                if (prevRow) prevRow.style.display = 'none';
-            }
-            var orderRow = buttonEl.closest('tr');
-            if (orderRow) {
-                orderRow.parentNode.insertBefore(taskRow, orderRow.nextSibling);
-            }
-            taskRow.style.display = 'table-row';
-            currentOpenOrderId = orderId;
-        }
-        
-        // Sipariş Task % Güncelleme - Aşama ID'leri
-        var STAGE_PLANLAMA = 2358;
-        var STAGE_IS_ATANDI = 2359;
-        var STAGE_DEVAM = 2361;
-        var STAGE_ONAY_BEKLIYOR = 2362;
-        var STAGE_TAMAMLANDI = 2364;
-        var STAGE_ONAYLANDI = 6;
-        var STAGE_IPTAL = 2365;
-        
-        function updateOrderTaskPercent(taskId, newPercent, inputEl, isProductionTask) {
-            if (isProductionTask) {
-                alert('Üretim Süreci yüzdesi sadece Üretim Matrisi üzerinden yönetilebilir.');
-                return;
-            }
-            var pct = parseInt(newPercent) || 0;
-            if (pct < 0) pct = 0;
-            if (pct > 100) pct = 100;
-            var newStageId = STAGE_PLANLAMA;
-            if (pct === 0) { newStageId = STAGE_IS_ATANDI; }
-            else if (pct > 0 && pct < 100) { newStageId = STAGE_DEVAM; }
-            else if (pct === 100) { newStageId = STAGE_TAMAMLANDI; }
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', 'V16/sales/query/ajax_ops_task.cfm', true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.withCredentials = true;
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    try {
-                        var resp = JSON.parse(xhr.responseText);
-                        if (resp.success || resp.SUCCESS) {
-                            var row = inputEl.closest('tr');
-                            if (row) {
-                                var stageSelect = row.querySelector('select');
-                                if (stageSelect) stageSelect.value = newStageId;
-                            }
-                            // Sipariş % güncelle
-                            if (resp.order_pct !== undefined && currentOpenOrderId) {
-                                updateOrderPercentUI(currentOpenOrderId, resp.order_pct);
-                            }
-                            // Proje % güncelle
-                            if (resp.project_pct !== undefined && resp.project_id) {
-                                updateProjectPercentUI(resp.project_id, resp.project_pct);
-                            }
-                        }
-                    } catch(e) { console.error(e); }
-                }
-            };
-            xhr.send('action=update_percent&task_id=' + taskId + '&percent_complete=' + pct + '&status_id=' + newStageId + '&order_id=' + (currentOpenOrderId || 0));
-        }
-        
-        function updateOrderTaskStage(taskId, stageId, selectEl, isProductionTask) {
-            if (isProductionTask) {
-                alert('Üretim Süreci aşaması sadece Üretim Matrisi üzerinden yönetilebilir.');
-                return;
-            }
-            var newPercent = 0;
-            if (parseInt(stageId) === STAGE_TAMAMLANDI || parseInt(stageId) === STAGE_ONAYLANDI) { newPercent = 100; }
-            else if (parseInt(stageId) === STAGE_DEVAM) { newPercent = -1; }
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', 'V16/sales/query/ajax_ops_task.cfm', true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-            xhr.withCredentials = true;
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    try {
-                        var resp = JSON.parse(xhr.responseText);
-                        if (resp.success || resp.SUCCESS) {
-                            if (newPercent >= 0) {
-                                var row = selectEl.closest('tr');
-                                if (row) {
-                                    var pctInput = row.querySelector('input[type="number"]');
-                                    if (pctInput) pctInput.value = newPercent;
-                                }
-                            }
-                            // Sipariş % güncelle
-                            if (resp.order_pct !== undefined && currentOpenOrderId) {
-                                updateOrderPercentUI(currentOpenOrderId, resp.order_pct);
-                            }
-                            // Proje % güncelle
-                            if (resp.project_pct !== undefined && resp.project_id) {
-                                updateProjectPercentUI(resp.project_id, resp.project_pct);
-                            }
-                        }
-                    } catch(e) { console.error(e); }
-                }
-            };
-            var sendData = 'action=update_status&task_id=' + taskId + '&status_id=' + stageId + '&order_id=' + (currentOpenOrderId || 0);
-            if (newPercent >= 0) sendData += '&percent_complete=' + newPercent;
-            xhr.send(sendData);
-        }
-        
-        // Sipariş % UI güncelleme
-        function updateOrderPercentUI(orderId, pct) {
-            var orderPctEl = document.getElementById('order-pct-' + orderId);
-            if (orderPctEl) orderPctEl.textContent = Math.round(pct) + '%';
-            var orderProgressEl = document.getElementById('order-progress-' + orderId);
-            if (orderProgressEl) orderProgressEl.style.width = Math.round(pct) + '%';
-        }
-        
-        // Proje % UI güncelleme
-        function updateProjectPercentUI(projectId, pct) {
-            var projPctEl = document.getElementById('project-percent-' + projectId);
-            if (projPctEl) projPctEl.textContent = Math.round(pct) + '%';
-            var projBarEl = document.getElementById('project-bar-' + projectId);
-            if (projBarEl) projBarEl.style.width = Math.round(pct) + '%';
-        }
-        
-        function openOrderTaskDocumentModal(taskId) {
-            openBoxDraggable('<cfoutput>#request.self#</cfoutput>?fuseaction=sales.popup_ops_task_documents&task_id=' + taskId);
-        }
-        
-        function openOrderTaskEdit(taskId) {
-            var url = '/V16/sales/form/dsp_ops_task.cfm?task_id=' + taskId + '&ref_type=ORDER&company_id=<cfoutput>#session.ep.company_id#</cfoutput>';
-            showTaskFormModal(url);
-        }
-        
-        function openOrderTaskMatrix(orderId, taskId) {
-            var url = '/V16/sales/form/dsp_ops_task_matrix.cfm?task_id=' + taskId + '&ref_type=ORDER&ref_id=' + orderId;
-            
-            var existing = document.getElementById('taskMatrixOverlay');
-            if(existing) existing.remove();
-            
-            var overlay = document.createElement('div');
-            overlay.id = 'taskMatrixOverlay';
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
-            overlay.onclick = function(e) { if(e.target === overlay) overlay.remove(); };
-            
-            var modal = document.createElement('div');
-            modal.style.cssText = 'background:white;width:90%;max-width:800px;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
-            
-            var body = document.createElement('div');
-            body.style.cssText = 'max-height:90vh;overflow:auto;';
-            body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Matris yükleniyor...</div>';
-            
-            modal.appendChild(body);
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
-            
-            fetch(url).then(function(r){ return r.text(); }).then(function(html){
-                body.innerHTML = html;
-                var scripts = body.querySelectorAll('script');
-                scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
-            }).catch(function(err){
-                body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
-            });
-        }
-        
-        function addOrderTask(orderId) {
-            var url = '/V16/sales/form/dsp_ops_task.cfm?task_id=0&ref_type=ORDER&ref_id=' + orderId + '&company_id=<cfoutput>#session.ep.company_id#</cfoutput>';
-            showTaskFormModal(url);
-        }
-        
-        function closeTaskFormModal() {
-            var overlay = document.getElementById('taskFormOverlay');
-            if(overlay) overlay.remove();
-        }
-        
-        function showTaskFormModal(url) {
-            var existing = document.getElementById('taskFormOverlay');
-            if(existing) existing.remove();
-            var overlay = document.createElement('div');
-            overlay.id = 'taskFormOverlay';
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
-            overlay.onclick = function(e) { if(e.target === overlay) overlay.remove(); };
-            var modal = document.createElement('div');
-            modal.style.cssText = 'background:white;width:577px;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
-            var body = document.createElement('div');
-            body.style.cssText = 'max-height:90vh;overflow:auto;';
-            body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa fa-spinner fa-spin fa-2x"></i><br><br>Form yükleniyor...</div>';
-            modal.appendChild(body);
-            overlay.appendChild(modal);
-            document.body.appendChild(overlay);
-            fetch(url).then(function(r){ return r.text(); }).then(function(html){
-                body.innerHTML = html;
-                var scripts = body.querySelectorAll('script');
-                scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
-                setTimeout(function(){
-                    var cancelBtns = body.querySelectorAll('button');
-                    cancelBtns.forEach(function(btn){
-                        if(btn.textContent.trim() === 'İptal' || btn.textContent.trim() === 'Kapat' || btn.textContent.trim() === 'Vazgeç') {
-                            btn.onclick = function(e){ e.preventDefault(); closeTaskFormModal(); };
-                        }
-                    });
-                    var closeBtn = body.querySelector('.close, [data-dismiss="modal"], .btn-close, .otm-close');
-                    if(closeBtn) closeBtn.onclick = function(e){ e.preventDefault(); closeTaskFormModal(); };
-                }, 100);
-            }).catch(function(err){
-                body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
-            });
-        }
 
         function updateTaskPercent(workId, percent, inputElement) {
             percent = Math.min(100, Math.max(0, parseInt(percent) || 0));
@@ -1080,16 +867,12 @@
             -- Görev sayısı
             (SELECT COUNT(*) FROM PRO_WORKS PW WHERE PW.PROJECT_ID = P.PROJECT_ID) AS TASK_COUNT,
             
-            -- Tamamlanma yüzdesinin ortalaması (0-100 arasında)
-            (SELECT 
-                CASE 
-                    WHEN COUNT(*) > 0 
-                    THEN AVG(ISNULL(PW.TO_COMPLETE, 0))
-                    ELSE 0 
-                END 
-             FROM PRO_WORKS PW 
-             WHERE PW.PROJECT_ID = P.PROJECT_ID
-            ) AS COMPLETION_RATE
+            -- Tamamlanma yüzdesinin ortalaması (Siparişlerin task ortalamalarından)
+            ISNULL((SELECT AVG(t.PERCENT_COMPLETE)
+             FROM #DSN#.OPS_TASK t
+             INNER JOIN #DSN3#.ORDERS o ON t.REF_ID = o.ORDER_ID AND t.REF_TYPE = 'ORDER'
+             WHERE o.PROJECT_ID = P.PROJECT_ID AND t.IS_ACTIVE = 1
+            ), 0) AS COMPLETION_RATE
             
         FROM 
             PRO_PROJECTS P
@@ -1178,51 +961,6 @@
 </cfcatch>
 </cftry>
 
-<!--- OPS_TASK - Sipariş bazlı görevler --->
-<cfquery name="GET_ORDER_TASKS" datasource="#DSN#">
-    SELECT 
-        T.TASK_ID,
-        T.TASK_HEAD,
-        T.REF_ID AS ORDER_ID,
-        T.ASSIGNED_EMP_ID,
-        T.DEADLINE,
-        T.STATUS_ID,
-        ISNULL(T.PERCENT_COMPLETE, 0) AS PERCENT_COMPLETE,
-        ISNULL(T.ESTIMATED_MINUTES, 0) AS ESTIMATED_MINUTES,
-        ISNULL(T.ACTUAL_MINUTES, 0) AS ACTUAL_MINUTES,
-        T.HAS_MATRIX,
-        COALESCE(E.EMPLOYEE_NAME + ' ' + E.EMPLOYEE_SURNAME, '') AS EMPLOYEE_NAME
-    FROM OPS_TASK T
-        LEFT JOIN EMPLOYEES E ON T.ASSIGNED_EMP_ID = E.EMPLOYEE_ID
-    WHERE T.REF_TYPE = 'ORDER'
-    AND T.IS_ACTIVE = 1
-    ORDER BY T.REF_ID, T.TASK_ID
-</cfquery>
-
-<!--- Task Aşamaları --->
-<cfset GET_TASK_STAGES = queryNew("STATUS_ID,STATUS_HEAD", "integer,varchar")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 2358)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "Planlama")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 2359)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "İş Atandı")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 2361)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "Başlandı - Devam")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 2362)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "Onay Bekleniyor")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 2364)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "Tamamlandı")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 6)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "Onaylandı")>
-<cfset queryAddRow(GET_TASK_STAGES)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_ID", 2365)>
-<cfset querySetCell(GET_TASK_STAGES, "STATUS_HEAD", "İptal Edildi")>
-
 <!--- Siparisler - Server-side JSON olarak hazirla (Turkce karakter ve eksik alan sorunu icin) --->
 <cfset periodYear = "#session.ep.period_id#;#session.ep.period_year#">
 
@@ -1253,7 +991,7 @@
             COALESCE(CT.COUNTRY_NAME, '') AS COUNTRY_NAME,
             COALESCE(SZ.SZ_NAME, '') AS SALES_ZONE_NAME,
             COALESCE(OFR.OFFER_NUMBER, '') AS OFFER_NUMBER,
-            COALESCE(O.OTHER_MONEY, '') AS MONEY_NAME,
+            COALESCE(O.OTHER_MONEY, 'TL') AS MONEY_NAME,
             COALESCE(PTR.STAGE, '') AS STAGE_NAME
         FROM ORDERS O
             LEFT JOIN #DSN#.COMPANY C ON O.COMPANY_ID = C.COMPANY_ID
@@ -1315,6 +1053,21 @@
     <!--- Surec (ORDER_STAGE) lookup - stageMap bos birak, ORDER_STAGE degerini dogrudan kullan --->
     <cfset stageMap = {}>
     
+    <!--- Sipariş Tamamlanma Oranları (task ortalaması) - ÖNCE hesapla --->
+    <cfset orderCompletionMap = {}>
+    <cftry>
+        <cfquery name="GET_ORDER_COMPLETION" datasource="#DSN#">
+            SELECT REF_ID AS ORDER_ID, AVG(PERCENT_COMPLETE) AS AVG_PCT
+            FROM OPS_TASK
+            WHERE REF_TYPE = 'ORDER' AND IS_ACTIVE = 1
+            GROUP BY REF_ID
+        </cfquery>
+        <cfloop query="GET_ORDER_COMPLETION">
+            <cfset orderCompletionMap[toString(ORDER_ID)] = int(val(AVG_PCT))>
+        </cfloop>
+    <cfcatch></cfcatch>
+    </cftry>
+    
     <!--- Proje bazli siparis map olustur --->
     <cfset projectOrdersMap = {}>
     <cfset processedOrders = {}>
@@ -1348,7 +1101,8 @@
                 "salesRegion": SALES_ZONE_NAME,
                 "offerId": len(OFFER_ID) ? OFFER_ID : "",
                 "offerNumber": OFFER_NUMBER,
-                "recordedBy": EMPLOYEE_NAME
+                "recordedBy": EMPLOYEE_NAME,
+                "completionRate": structKeyExists(orderCompletionMap, toString(ORDER_ID)) ? orderCompletionMap[toString(ORDER_ID)] : 0
             }>
             
             <!--- Bu siparisi ilgili tum projelere ekle --->
@@ -1370,6 +1124,41 @@
     <cfoutput><div style="background:red;color:white;padding:10px;">HATA: #cfcatch.message# - #cfcatch.detail#</div></cfoutput>
 </cfcatch>
 </cftry>
+
+<!--- Sipariş Task'ları --->
+<cftry>
+    <cfquery name="GET_ORDER_TASKS" datasource="#DSN#">
+        SELECT 
+            T.TASK_ID,
+            T.TASK_HEAD,
+            T.REF_ID AS ORDER_ID,
+            T.STATUS_ID,
+            T.PERCENT_COMPLETE,
+            T.DEADLINE,
+            T.ESTIMATED_MINUTES,
+            T.ACTUAL_MINUTES,
+            T.HAS_MATRIX,
+            E.EMPLOYEE_NAME + ' ' + E.EMPLOYEE_SURNAME AS EMPLOYEE_NAME
+        FROM OPS_TASK T
+        LEFT JOIN EMPLOYEES E ON T.ASSIGNED_EMP_ID = E.EMPLOYEE_ID
+        WHERE T.REF_TYPE = 'ORDER'
+        AND T.IS_ACTIVE = 1
+        AND T.REF_ID IN (SELECT ORDER_ID FROM #DSN3#.ORDERS WHERE PROJECT_ID IN 
+            (SELECT PROJECT_ID FROM PRO_PROJECTS WHERE COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#">))
+        ORDER BY T.REF_ID, T.TASK_ID
+    </cfquery>
+<cfcatch>
+    <cfset GET_ORDER_TASKS = queryNew("TASK_ID,TASK_HEAD,ORDER_ID,STATUS_ID,PERCENT_COMPLETE,DEADLINE,ESTIMATED_MINUTES,ACTUAL_MINUTES,HAS_MATRIX,EMPLOYEE_NAME")>
+</cfcatch>
+</cftry>
+
+<!--- Task Aşamaları --->
+<cfset GET_TASK_STAGES = queryNew("STATUS_ID,STATUS_HEAD")>
+<cfset queryAddRow(GET_TASK_STAGES, {STATUS_ID: 2358, STATUS_HEAD: "Planlama"})>
+<cfset queryAddRow(GET_TASK_STAGES, {STATUS_ID: 2359, STATUS_HEAD: "İş Atandı"})>
+<cfset queryAddRow(GET_TASK_STAGES, {STATUS_ID: 2361, STATUS_HEAD: "Devam Ediyor"})>
+<cfset queryAddRow(GET_TASK_STAGES, {STATUS_ID: 2364, STATUS_HEAD: "Tamamlandı"})>
+<cfset queryAddRow(GET_TASK_STAGES, {STATUS_ID: 2365, STATUS_HEAD: "Onaylandı"})>
 
 <!--- DEBUG: Query sonuclarini goster --->
 <cfif isDefined("GET_PROJECT_ORDERS")>
@@ -1779,6 +1568,7 @@
                                                                 <th class="py-2 px-2 text-left font-semibold">Tarih</th>
                                                                 <th class="py-2 px-2 text-left font-semibold">Sevk</th>
                                                                 <th class="py-2 px-2 text-left font-semibold">Teslim</th>
+                                                                <th class="py-2 px-2 text-center font-semibold">%</th>
                                                                 <th class="py-2 px-2 text-right font-semibold">Tutar</th>
                                                                 <th class="py-2 px-2 text-left font-semibold">Surec</th>
                                                                 <th class="py-2 px-2 text-left font-semibold">Sevk Y.</th>
@@ -1806,6 +1596,14 @@
                                                                     <td class="py-2 px-2 text-gray-600 whitespace-nowrap" x-text="order.orderDate"></td>
                                                                     <td class="py-2 px-2 text-gray-600 whitespace-nowrap" x-text="order.shipDate"></td>
                                                                     <td class="py-2 px-2 text-gray-600 whitespace-nowrap" x-text="order.deliveryDate"></td>
+                                                                    <td class="py-2 px-2 text-center">
+                                                                        <div class="flex items-center justify-center gap-1">
+                                                                            <div class="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                                                <div class="h-full bg-teal-500 rounded-full" :style="'width:' + (order.completionRate || 0) + '%'"></div>
+                                                                            </div>
+                                                                            <span class="text-xs text-gray-600" x-text="(order.completionRate || 0) + '%'"></span>
+                                                                        </div>
+                                                                    </td>
                                                                     <td class="py-2 px-2 text-right text-gray-700 whitespace-nowrap">
                                                                         <span x-text="order.totalAmount"></span>
                                                                         <span x-show="order.currency" class="ml-1 text-gray-500" x-text="order.currency"></span>
@@ -1835,28 +1633,27 @@
                                                                     </td>
                                                                 </tr>
                                                             </template>
-                                                            <!--- Sipariş Task Listesi (W3 stili) --->
+                                                            <!--- Sipariş Task Listesi (W3 Stili) --->
                                                             <cfloop query="GET_PROJECT_ORDERS">
-                                                                <cfif GET_PROJECT_ORDERS.PROJECT_ID eq PROJECT_ID>
                                                                 <cfset orderId = GET_PROJECT_ORDERS.ORDER_ID>
                                                                 <tr id="order-tasks-#orderId#" style="display:none;" class="bg-gray-50">
-                                                                    <td colspan="13" class="p-0">
-                                                                        <div class="p-4 overflow-x-auto">
-                                                                            <table class="ui-table-list ui-form form_list" border="1" style="width:100%;">
-                                                                                <thead>
+                                                                    <td colspan="14" style="padding:0;">
+                                                                        <div style="overflow-x:auto;padding:0;">
+                                                                            <table class="ui-table-list ui-form form_list" style="width:100%;border-collapse:collapse;border-left:none;border-right:none;">
+                                                                                <thead style="background-color:##2b3643;">
                                                                                     <tr>
-                                                                                        <th width="16" style="text-align:center"><i class="fa fa-bars" style="font-size:10px" title="Sürükle-Bırak"></i></th>
-                                                                                        <th width="30" style="text-align:center">A</th>
-                                                                                        <th width="220" style="text-align:left">Başlık</th>
-                                                                                        <th width="90" style="text-align:center">Aşama</th>
-                                                                                        <th width="80" style="text-align:center">Termin</th>
-                                                                                        <th width="70" style="text-align:center">Öngörülen</th>
-                                                                                        <th width="70" style="text-align:center">Harcanan</th>
-                                                                                        <th width="40" style="text-align:center">%</th>
-                                                                                        <th width="20"><i class="fa fa-pencil" title="Düzenle"></i></th>
-                                                                                        <th width="20"><i class="fa fa-file" title="Dosya"></i></th>
-                                                                                        <th width="20"><i class="fa fa-th" title="Matris"></i></th>
-                                                                                        <th width="20"><i class="fa fa-plus" title="Ekle"></i></th>
+                                                                                        <th width="16" style="text-align:center;border:1px solid ##8EA9DB;border-left:none;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;"><i class="fa fa-bars" style="font-size:10px" title="Sürükle-Bırak"></i></th>
+                                                                                        <th width="30" style="text-align:center;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">A</th>
+                                                                                        <th width="220" style="text-align:left;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">Başlık</th>
+                                                                                        <th width="90" style="text-align:center;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">Aşama</th>
+                                                                                        <th width="80" style="text-align:center;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">Termin</th>
+                                                                                        <th width="70" style="text-align:center;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">Öngörülen</th>
+                                                                                        <th width="70" style="text-align:center;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">Harcanan</th>
+                                                                                        <th width="40" style="text-align:center;border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;font-weight:600;padding:8px 6px;">%</th>
+                                                                                        <th width="20" style="border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;padding:8px 6px;"><i class="fa fa-pencil" title="Düzenle"></i></th>
+                                                                                        <th width="20" style="border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;padding:8px 6px;"><i class="fa fa-file" title="Dosya"></i></th>
+                                                                                        <th width="20" style="border:1px solid ##8EA9DB;background-color:##2b3643;color:##fff;padding:8px 6px;"><i class="fa fa-th" title="Matris"></i></th>
+                                                                                        <th width="20" style="border:1px solid ##8EA9DB;border-right:none;background-color:##2b3643;color:##fff;padding:8px 6px;"><i class="fa fa-plus" title="Ekle"></i></th>
                                                                                     </tr>
                                                                                 </thead>
                                                                                 <tbody>
@@ -1866,7 +1663,7 @@
                                                                                             <cfset taskIdx = taskIdx + 1>
                                                                                             <cfset isProductionTask = (findNoCase("ÜRETİM", TASK_HEAD) gt 0 AND HAS_MATRIX eq 1) ? true : false>
                                                                                             <tr class="ops-task-row" draggable="true" data-task-id="#TASK_ID#">
-                                                                                                <td style="text-align:center;cursor:move;" class="drag-handle"><i class="fa fa-bars" style="font-size:10px;color:##999;"></i></td>
+                                                                                                <td style="text-align:center;cursor:move;border-left:none;" class="drag-handle"><i class="fa fa-bars" style="font-size:10px;color:##999;"></i></td>
                                                                                                 <td style="text-align:center"><img class="img-circle" src="images/male.jpg" style="width:28px;height:28px;border-radius:50%;" title="#EMPLOYEE_NAME#"></td>
                                                                                                 <td style="text-align:left"><a href="#request.self#?fuseaction=sales.ops_task&event=det&task_id=#TASK_ID#" target="_blank">#TASK_HEAD#</a></td>
                                                                                                 <td style="text-align:center"><cfif isProductionTask><select class="pkg-select-inline" disabled style="background:##f3f4f6;cursor:not-allowed;"><option value="">Seçiniz...</option><cfloop query="GET_TASK_STAGES"><option value="#GET_TASK_STAGES.STATUS_ID#" <cfif val(GET_ORDER_TASKS.STATUS_ID) eq GET_TASK_STAGES.STATUS_ID>selected</cfif>>#GET_TASK_STAGES.STATUS_HEAD#</option></cfloop></select><cfelse><select class="pkg-select-inline" onchange="updateOrderTaskStage(#TASK_ID#, this.value, this, false)"><option value="">Seçiniz...</option><cfloop query="GET_TASK_STAGES"><option value="#GET_TASK_STAGES.STATUS_ID#" <cfif val(GET_ORDER_TASKS.STATUS_ID) eq GET_TASK_STAGES.STATUS_ID>selected</cfif>>#GET_TASK_STAGES.STATUS_HEAD#</option></cfloop></select></cfif></td>
@@ -1877,19 +1674,18 @@
                                                                                                 <td style="text-align:center"><a href="javascript:void(0)" onclick="openOrderTaskEdit(#TASK_ID#)" title="Düzenle"><i class="fa fa-pencil" style="color:grey"></i></a></td>
                                                                                                 <td style="text-align:center"><a href="javascript:void(0)" onclick="openOrderTaskDocumentModal(#TASK_ID#)" title="Dosya"><i class="fa fa-file" style="color:grey"></i></a></td>
                                                                                                 <td style="text-align:center"><cfif HAS_MATRIX eq 1><a href="javascript:void(0)" onclick="openOrderTaskMatrix(#orderId#, #TASK_ID#)" title="Matris"><i class="fa fa-th" style="color:##16a34a"></i></a><cfelse><i class="fa fa-th" style="color:##ccc"></i></cfif></td>
-                                                                                                <td style="text-align:center"><a href="javascript:void(0)" onclick="addOrderTask(#orderId#)" title="Görev Ekle"><i class="fa fa-plus" style="color:grey"></i></a></td>
+                                                                                                <td style="text-align:center;border-right:none;"><a href="javascript:void(0)" onclick="addOrderTask(#orderId#)" title="Görev Ekle"><i class="fa fa-plus" style="color:grey"></i></a></td>
                                                                                             </tr>
                                                                                         </cfif>
                                                                                     </cfloop>
                                                                                     <cfif taskIdx eq 0>
-                                                                                        <tr><td colspan="12" style="text-align:center;padding:20px;">Görev bulunamadı - <a href="javascript:void(0)" onclick="addOrderTask(#orderId#)" style="color:##14b8a6;">Görev Ekle</a></td></tr>
+                                                                                        <tr><td colspan="14" style="text-align:center;padding:12px 0;border-left:none;border-right:none;"><a href="javascript:void(0)" onclick="createFromTemplate(#orderId#)" style="color:##6b7280;text-decoration:none;font-size:11px;"><i class="fa fa-plus" style="margin-right:4px;"></i>Şablondan Oluştur</a></td></tr>
                                                                                     </cfif>
                                                                                 </tbody>
                                                                             </table>
                                                                         </div>
                                                                     </td>
                                                                 </tr>
-                                                                </cfif>
                                                             </cfloop>
                                                             <tr x-show="orders.length === 0">
                                                                 <td colspan="13" class="py-4 text-center text-gray-400">Kayit bulunamadi</td>
@@ -2076,6 +1872,263 @@
             }
         }
     }
+    
+    // ========== SİPARİŞ TASK FONKSİYONLARI ==========
+    var STAGE_PLANLAMA = 2358;
+    var STAGE_IS_ATANDI = 2359;
+    var STAGE_DEVAM = 2361;
+    var STAGE_TAMAMLANDI = 2364;
+    var STAGE_ONAYLANDI = 2365;
+    
+    var currentOpenOrderId = null;
+    function toggleOrderTasks(orderId, btn) {
+        // Önce tüm açık task satırlarını kapat
+        var allTaskRows = document.querySelectorAll('[id^="order-tasks-"]');
+        allTaskRows.forEach(function(row) {
+            row.style.display = 'none';
+        });
+        
+        // Tüm butonları resetle
+        var allBtns = document.querySelectorAll('[data-order-id]');
+        allBtns.forEach(function(b) {
+            var icon = b.querySelector('i');
+            if (icon) { icon.classList.remove('fa-chevron-up'); icon.classList.add('fa-chevron-down'); }
+            b.classList.remove('bg-teal-500', 'text-white');
+            b.classList.add('bg-gray-200', 'text-gray-600');
+        });
+        
+        // Aynı siparişe tekrar tıklandıysa sadece kapat
+        if (currentOpenOrderId === orderId) {
+            currentOpenOrderId = null;
+            return;
+        }
+        
+        // Task satırını bul
+        var taskRow = document.getElementById('order-tasks-' + orderId);
+        if (!taskRow) return;
+        
+        // Tıklanan sipariş satırını bul ve task satırını hemen arkasına taşı
+        var orderRow = btn.closest('tr');
+        if (orderRow) {
+            orderRow.parentNode.insertBefore(taskRow, orderRow.nextSibling);
+        }
+        
+        // Task satırını göster ve butonu aktif yap
+        taskRow.style.display = 'table-row';
+        var icon = btn.querySelector('i');
+        if (icon) { icon.classList.remove('fa-chevron-down'); icon.classList.add('fa-chevron-up'); }
+        btn.classList.add('bg-teal-500', 'text-white');
+        btn.classList.remove('bg-gray-200', 'text-gray-600');
+        currentOpenOrderId = orderId;
+    }
+    
+    function updateOrderTaskPercent(taskId, newPercent, inputEl, isProductionTask) {
+        if (isProductionTask) {
+            alert('Üretim Süreci yüzdesi sadece Üretim Matrisi üzerinden yönetilebilir.');
+            return;
+        }
+        var pct = parseInt(newPercent) || 0;
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        var newStageId = STAGE_PLANLAMA;
+        if (pct === 0) { newStageId = STAGE_IS_ATANDI; }
+        else if (pct > 0 && pct < 100) { newStageId = STAGE_DEVAM; }
+        else if (pct === 100) { newStageId = STAGE_TAMAMLANDI; }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'V16/sales/query/ajax_ops_task.cfm', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.withCredentials = true;
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.success || resp.SUCCESS) {
+                        var row = inputEl.closest('tr');
+                        if (row) {
+                            var stageSelect = row.querySelector('select');
+                            if (stageSelect) stageSelect.value = newStageId;
+                        }
+                        // Sipariş yüzdesini güncelle
+                        if (resp.order_pct !== undefined && currentOpenOrderId) {
+                            updateOrderPercentUI(currentOpenOrderId, resp.order_pct);
+                        }
+                    }
+                } catch(e) { console.error(e); }
+            }
+        };
+        xhr.send('action=update_percent&task_id=' + taskId + '&percent_complete=' + pct + '&status_id=' + newStageId + '&order_id=' + (currentOpenOrderId || 0));
+    }
+    
+    function updateOrderTaskStage(taskId, stageId, selectEl, isProductionTask) {
+        if (isProductionTask) {
+            alert('Üretim Süreci aşaması sadece Üretim Matrisi üzerinden yönetilebilir.');
+            return;
+        }
+        var newPercent = 0;
+        if (parseInt(stageId) === STAGE_TAMAMLANDI || parseInt(stageId) === STAGE_ONAYLANDI) { newPercent = 100; }
+        else if (parseInt(stageId) === STAGE_DEVAM) { newPercent = -1; }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'V16/sales/query/ajax_ops_task.cfm', true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.withCredentials = true;
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var resp = JSON.parse(xhr.responseText);
+                    if (resp.success || resp.SUCCESS) {
+                        if (newPercent >= 0) {
+                            var row = selectEl.closest('tr');
+                            if (row) {
+                                var pctInput = row.querySelector('input[type="number"]');
+                                if (pctInput) pctInput.value = newPercent;
+                            }
+                        }
+                        // Sipariş yüzdesini güncelle
+                        if (resp.order_pct !== undefined && currentOpenOrderId) {
+                            updateOrderPercentUI(currentOpenOrderId, resp.order_pct);
+                        }
+                    }
+                } catch(e) { console.error(e); }
+            }
+        };
+        var sendData = 'action=update_status&task_id=' + taskId + '&status_id=' + stageId;
+        if (newPercent >= 0) sendData += '&percent_complete=' + newPercent;
+        xhr.send(sendData);
+    }
+    
+    // Sipariş yüzde UI güncelleme fonksiyonu
+    function updateOrderPercentUI(orderId, pct) {
+        var orderRow = document.querySelector('tr[onclick*="toggleOrderTasks(' + orderId + ')"], tr[data-order-id="' + orderId + '"]');
+        if (!orderRow) {
+            // Alpine.js ile oluşturulan satırları bul
+            var allRows = document.querySelectorAll('tbody tr');
+            allRows.forEach(function(row) {
+                if (row.innerHTML.indexOf('toggleOrderTasks(' + orderId) > -1) {
+                    orderRow = row;
+                }
+            });
+        }
+        if (orderRow) {
+            // Yüzde sütunundaki progress bar ve text'i güncelle
+            var progressBar = orderRow.querySelector('.bg-teal-500, .bg-green-500');
+            var progressText = orderRow.querySelector('[x-text*="completionRate"]');
+            if (progressBar) {
+                progressBar.style.width = Math.round(pct) + '%';
+            }
+            // Sipariş satırındaki % göstergesini bul ve güncelle
+            var pctCell = orderRow.querySelector('td:nth-child(6)'); // % sütunu
+            if (pctCell) {
+                var bar = pctCell.querySelector('.bg-teal-500');
+                var txt = pctCell.querySelector('span');
+                if (bar) bar.style.width = Math.round(pct) + '%';
+                if (txt) txt.textContent = Math.round(pct) + '%';
+            }
+        }
+    }
+    
+    function openOrderTaskEdit(taskId) {
+        var url = '/V16/sales/form/dsp_ops_task.cfm?task_id=' + taskId + '&ref_type=ORDER';
+        showTaskFormModal(url);
+    }
+    
+    function addOrderTask(orderId) {
+        var url = '/V16/sales/form/dsp_ops_task.cfm?task_id=0&ref_type=ORDER&ref_id=' + orderId;
+        showTaskFormModal(url);
+    }
+    
+    function createFromTemplate(orderId) {
+        // Doğrudan fallback şablon ile oluştur (template_id = -1)
+        var fd = new FormData();
+        fd.append('action', 'batch_create');
+        fd.append('ref_type', 'ORDER');
+        fd.append('ref_id', orderId);
+        fd.append('template_id', '-1');
+        fd.append('strategy', 'skip_existing');
+        
+        fetch('/V16/sales/query/ajax_ops_task.cfm', {method: 'POST', body: fd})
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            if (resp.success) {
+                alert('Görevler oluşturuldu!');
+                location.reload();
+            } else {
+                alert('Hata: ' + (resp.message || 'Bilinmeyen hata'));
+            }
+        })
+        .catch(function(err) {
+            alert('Hata: ' + err.message);
+        });
+    }
+    
+    function openOrderTaskMatrix(orderId, taskId) {
+        var url = '/V16/sales/form/dsp_ops_task_matrix.cfm?task_id=' + taskId + '&ref_type=ORDER&ref_id=' + orderId;
+        var existing = document.getElementById('taskMatrixOverlay');
+        if(existing) existing.remove();
+        var overlay = document.createElement('div');
+        overlay.id = 'taskMatrixOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+        overlay.onclick = function(e) { if(e.target === overlay) overlay.remove(); };
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background:white;width:90%;max-width:800px;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
+        var body = document.createElement('div');
+        body.style.cssText = 'max-height:90vh;overflow:auto;';
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Matris yükleniyor...</div>';
+        modal.appendChild(body);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        fetch(url).then(function(r){ return r.text(); }).then(function(html){
+            body.innerHTML = html;
+            var scripts = body.querySelectorAll('script');
+            scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
+        }).catch(function(err){
+            body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
+        });
+    }
+    
+    function openOrderTaskDocumentModal(taskId) {
+        var url = 'index.cfm?fuseaction=asset.list_asset&event=add&module=sales&module_id=1&action=OPS_TASK&action_id=' + taskId + '&asset_cat_id=-21&action_type=0';
+        openTaskDocumentModal(taskId);
+    }
+    
+    function showTaskFormModal(url) {
+        var existing = document.getElementById('taskFormOverlay');
+        if(existing) existing.remove();
+        var overlay = document.createElement('div');
+        overlay.id = 'taskFormOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+        overlay.onclick = function(e) { if(e.target === overlay) overlay.remove(); };
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background:white;width:577px;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
+        var body = document.createElement('div');
+        body.style.cssText = 'max-height:90vh;overflow:auto;';
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa fa-spinner fa-spin fa-2x"></i><br><br>Form yükleniyor...</div>';
+        modal.appendChild(body);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        fetch(url).then(function(r){ return r.text(); }).then(function(html){
+            body.innerHTML = html;
+            var scripts = body.querySelectorAll('script');
+            scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
+            setTimeout(function(){
+                var cancelBtns = body.querySelectorAll('button');
+                cancelBtns.forEach(function(btn){
+                    if(btn.textContent.trim() === 'İptal' || btn.textContent.trim() === 'Kapat' || btn.textContent.trim() === 'Vazgeç') {
+                        btn.onclick = function(e){ e.preventDefault(); closeTaskFormModal(); };
+                    }
+                });
+                var closeBtn = body.querySelector('.close, [data-dismiss="modal"], .btn-close, .otm-close');
+                if(closeBtn) closeBtn.onclick = function(e){ e.preventDefault(); closeTaskFormModal(); };
+            }, 100);
+        }).catch(function(err){
+            body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
+        });
+    }
+    
+    function closeTaskFormModal() {
+        var overlay = document.getElementById('taskFormOverlay');
+        if(overlay) overlay.remove();
+    }
+    // ========== SİPARİŞ TASK FONKSİYONLARI SON ==========
     
     // Global functions
     function exportExcel() {
