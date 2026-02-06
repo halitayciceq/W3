@@ -794,12 +794,10 @@
         .btn-ws-save:hover { background: #1565c0; }
         
         /* Süre Input (Saat:Dakika) */
-        .time-input-wrap { display: inline-flex; align-items: center; gap: 0; }
-        .time-input-wrap .time-h, .time-input-wrap .time-m { width: 22px; padding: 2px 1px; text-align: center; border: 1px solid #d1d5db; font-size: 10px; background: #fff; -moz-appearance: textfield; }
-        .time-input-wrap .time-h { border-radius: 4px 0 0 4px; border-right: none; }
-        .time-input-wrap .time-m { border-radius: 0 4px 4px 0; }
+        .time-input-wrap { display: inline-flex; align-items: center; gap: 2px; }
+        .time-input-wrap .time-h, .time-input-wrap .time-m { width: 32px; padding: 4px 4px; text-align: center; border: 1px solid #d1d5db; font-size: 12px; background: #fff; -moz-appearance: textfield; border-radius: 4px; }
         .time-input-wrap .time-h::-webkit-inner-spin-button, .time-input-wrap .time-m::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .time-input-wrap .time-sep { font-size: 10px; font-weight: 700; color: #666; padding: 0; background: #e5e7eb; border-top: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; line-height: 20px; }
+        .time-input-wrap .time-sep { font-size: 12px; font-weight: 700; color: #999; padding: 0 1px; line-height: 20px; }
         .time-input-wrap .time-h:focus, .time-input-wrap .time-m:focus { outline: none; border-color: #14b8a6; z-index: 1; position: relative; }
         
         /* Task Tablo */
