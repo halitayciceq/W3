@@ -15,8 +15,40 @@
 ```
 
 ### Git Durumu
-- **Son Commit:** `54a7aff` - "Restore working version"
+- **Son Commit:** `7635ad7` - "Proje durumu ve yapılacaklar notu"
 - **Repo:** https://github.com/halitayciceq/W3
+- **Branch:** main
+
+### Git Workflow (Önemli!)
+```bash
+# 1. Dosyayı W3 repo klasörüne kopyala
+cp "/Volumes/prod/documents/report/DOSYA_ADI.cfm" ~/Documents/W3/report/
+
+# 2. Git add, commit ve push
+cd ~/Documents/W3
+git add report/
+git commit -m "Açıklama mesajı"
+git push
+
+# Tek satırda:
+cp "/Volumes/prod/documents/report/DOSYA_ADI.cfm" ~/Documents/W3/report/ && cd ~/Documents/W3 && git add report/ && git commit -m "mesaj" && git push
+```
+
+### Repo Yapısı
+```
+~/Documents/W3/
+├── report/
+│   ├── 5560605B-BA40-44A6-1E209FF687575FC2.cfm  (Ana rapor)
+│   ├── dsp_ops_task_matrix.cfm                   (Matris modal)
+│   ├── PROJE_DURUMU_20260206.md                  (Bu dosya)
+│   └── ...diğer dosyalar
+└── README.md
+```
+
+### Prod ve Git Arasındaki İlişki
+- **Prod (Canlı):** `/Volumes/prod/documents/report/`
+- **Git Repo:** `~/Documents/W3/report/`
+- Dosyalar önce prod'da düzenlenir, sonra W3'e kopyalanıp push edilir
 
 ---
 
