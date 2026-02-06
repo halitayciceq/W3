@@ -800,6 +800,21 @@
         .time-input-wrap .time-sep { font-size: 12px; font-weight: 700; color: #999; padding: 0 1px; line-height: 20px; }
         .time-input-wrap .time-h:focus, .time-input-wrap .time-m:focus { outline: none; border-color: #14b8a6; z-index: 1; position: relative; }
         
+        /* Employee Avatar */
+        .emp-avatar-wrap { position: relative; display: inline-block; }
+        .emp-avatar-wrap .emp-tooltip { visibility: hidden; opacity: 0; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; font-size: 11px; font-weight: 500; padding: 5px 10px; border-radius: 6px; white-space: nowrap; z-index: 100; pointer-events: none; transition: opacity 0.2s ease, visibility 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-bottom: 6px; }
+        .emp-avatar-wrap .emp-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #1e293b; }
+        .emp-avatar-wrap:hover .emp-tooltip { visibility: visible; opacity: 1; }
+        .emp-avatar-img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0; }
+        .emp-avatar-initials { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; text-transform: uppercase; }
+        
+        /* Dropdown Select (Modern) */
+        .pkg-select-inline { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E") no-repeat right 8px center; padding: 5px 24px 5px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; color: #374151; cursor: pointer; min-width: 90px; transition: border-color 0.2s, box-shadow 0.2s; outline: none; line-height: 1.4; }
+        .pkg-select-inline:hover { border-color: #9ca3af; }
+        .pkg-select-inline:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+        .pkg-select-inline:disabled { background-color: #f9fafb; color: #9ca3af; cursor: not-allowed; border-color: #e5e7eb; }
+        .pkg-select-inline option { padding: 6px 10px; }
+        
         /* Task Tablo */
         .task-table { font-size: 12px; }
         .task-table thead tr { background-color: #d6dce5; }
@@ -1197,7 +1212,7 @@
             E.EMPLOYEE_NAME + ' ' + E.EMPLOYEE_SURNAME AS EMPLOYEE_NAME,
             ISNULL(E.PHOTO, '') AS EMPLOYEE_PHOTO
         FROM OPS_TASK T
-        LEFT JOIN EMPLOYEES E ON T.ASSIGNED_EMP_ID = E.EMPLOYEE_ID
+        LEFT JOIN EMPLOYEES E ON T.ASSIGNED_EMP_ID = E.EMPLOYEE_ID AND T.ASSIGNED_EMP_ID > 0
         WHERE T.REF_TYPE = 'ORDER' AND T.IS_ACTIVE = 1
         AND T.REF_ID IN (SELECT ORDER_ID FROM #DSN3#.ORDERS WHERE PROJECT_ID IN 
             (SELECT PROJECT_ID FROM PRO_PROJECTS WHERE COMPANY_ID = <cfqueryparam cfsqltype="cf_sql_integer" value="#session.ep.company_id#">))
@@ -1727,7 +1742,7 @@
                                                                                             <cfset canEditTask = (isDefined('session.ep.admin') AND session.ep.admin eq 1) OR (isDefined('session.ep.employee_id') AND val(ASSIGNED_EMP_ID) eq val(session.ep.employee_id))>
                                                                                             <tr class="ops-task-row" data-task-id="#TASK_ID#">
                                                                                                 <td style="text-align:center;cursor:move;border-left:none;" class="drag-handle"><i class="fa fa-bars" style="font-size:10px;color:##999;"></i></td>
-                                                                                                <td style="text-align:center"><cfif len(EMPLOYEE_PHOTO) AND EMPLOYEE_PHOTO neq ''><img class="img-circle" src="documents/hr/#EMPLOYEE_PHOTO#" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" title="#EMPLOYEE_NAME#"><cfelse><img class="img-circle" src="images/male.jpg" style="width:28px;height:28px;border-radius:50%;" title="#EMPLOYEE_NAME#"></cfif></td>
+                                                                                                <td style="text-align:center"><cfset empName = len(trim(EMPLOYEE_NAME)) ? trim(EMPLOYEE_NAME) : ""><cfset empPhoto = len(trim(EMPLOYEE_PHOTO)) ? trim(EMPLOYEE_PHOTO) : ""><cfset animalEmojis = ["🐱","🐶","🐻","🦊","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐰","🐧","🦉","🐢","🐬","🦋","🐹","🦝"]><cfset animalBgs = ["##fef3c7","##dbeafe","##fce7f3","##ffedd5","##d1fae5","##e0e7ff","##fef9c3","##fed7aa","##cffafe","##fce7f3","##d1fae5","##fef3c7","##e0e7ff","##cffafe","##ffedd5","##d1fae5","##dbeafe","##fce7f3","##fef9c3","##e0e7ff"]><cfset animalSeed = (val(ASSIGNED_EMP_ID) gt 0) ? val(ASSIGNED_EMP_ID) : val(TASK_ID)><cfset animalIdx = (animalSeed mod arrayLen(animalEmojis)) + 1><span class="emp-avatar-wrap"><cfif len(empName)><span class="emp-tooltip">#empName#</span></cfif><cfif len(empPhoto)><img class="emp-avatar-img" src="documents/hr/#empPhoto#" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"><span class="emp-avatar-initials" style="display:none;background:#animalBgs[animalIdx]#;font-size:18px;">#animalEmojis[animalIdx]#</span><cfelse><span class="emp-avatar-initials" style="background:#animalBgs[animalIdx]#;font-size:18px;">#animalEmojis[animalIdx]#</span></cfif></span></td>
                                                                                                 <td style="text-align:left"><a href="#request.self#?fuseaction=sales.ops_task&event=det&task_id=#TASK_ID#" target="_blank">#TASK_HEAD#</a></td>
                                                                                                 <td style="text-align:center"><cfif isProductionTask OR NOT canEditTask><select class="pkg-select-inline" disabled style="background:##f3f4f6;cursor:not-allowed;"><option value="">Seciniz...</option><cfloop query="GET_TASK_STAGES"><option value="#GET_TASK_STAGES.STATUS_ID#" <cfif val(GET_ORDER_TASKS.STATUS_ID) eq GET_TASK_STAGES.STATUS_ID>selected</cfif>>#GET_TASK_STAGES.STATUS_HEAD#</option></cfloop></select><cfelse><select class="pkg-select-inline" onchange="updateOrderTaskStage(#TASK_ID#, this.value, this, false)"><option value="">Seciniz...</option><cfloop query="GET_TASK_STAGES"><option value="#GET_TASK_STAGES.STATUS_ID#" <cfif val(GET_ORDER_TASKS.STATUS_ID) eq GET_TASK_STAGES.STATUS_ID>selected</cfif>>#GET_TASK_STAGES.STATUS_HEAD#</option></cfloop></select></cfif></td>
                                                                                                 <td style="text-align:center"><cfif isDate(DEADLINE)>#dateformat(DEADLINE, 'dd.mm.yyyy')#</cfif></td>
