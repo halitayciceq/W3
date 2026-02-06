@@ -5,6 +5,10 @@
 <cfparam name="url.project_id" default="0">
 <cfparam name="url.work_id" default="0">
 
+<!--- DSN tanımı --->
+<cfif NOT isDefined("dsn")><cfset dsn = "workcube_prod"></cfif>
+<cfif NOT isDefined("dsn3")><cfset dsn3 = "workcube_prod_1"></cfif>
+
 <!--- Sipariş'ten project_id al --->
 <cfif url.ref_type EQ "ORDER" AND val(url.ref_id) GT 0>
     <cftry>
@@ -17,6 +21,50 @@
     <cfcatch></cfcatch>
     </cftry>
 </cfif>
+
+<!--- İstasyonları DB'den çek (DIM_TYPE=STAGE) --->
+<cfset dbWorkstations = []>
+<cfset dbCells = []>
+<cftry>
+    <cfquery name="qDimStages" datasource="#dsn#">
+        SELECT DIM_ID, DIM_CODE, DIM_NAME, SORT_ORDER
+        FROM PRJ_TASK_MATRIX_DIM
+        WHERE TEMPLATE_ID = (SELECT TEMPLATE_ID FROM PRJ_TASK_MATRIX_TEMPLATE WHERE TEMPLATE_CODE = 'URETIM_SURECI' AND IS_ACTIVE = 1)
+        AND DIM_TYPE = 'STAGE'
+        AND IS_ACTIVE = 1
+        ORDER BY SORT_ORDER
+    </cfquery>
+    <cfloop query="qDimStages">
+        <cfset arrayAppend(dbWorkstations, {
+            "workstation_id": DIM_ID,
+            "code": DIM_CODE,
+            "name": DIM_NAME
+        })>
+    </cfloop>
+    
+    <!--- Hücre tanımlarını DB'den çek --->
+    <cfquery name="qCellDefs" datasource="#dsn#">
+        SELECT cd.CELL_DEF_ID, cd.CELL_LABEL, cd.WEIGHT, cd.STAGE_DIM_ID
+        FROM PRJ_TASK_MATRIX_CELL_DEF cd
+        WHERE cd.TEMPLATE_ID = (SELECT TEMPLATE_ID FROM PRJ_TASK_MATRIX_TEMPLATE WHERE TEMPLATE_CODE = 'URETIM_SURECI' AND IS_ACTIVE = 1)
+        AND cd.IS_ACTIVE = 1
+        ORDER BY cd.CELL_DEF_ID
+    </cfquery>
+    <cfloop query="qCellDefs">
+        <cfset arrayAppend(dbCells, {
+            "cell_def_id": CELL_DEF_ID,
+            "cell_label": CELL_LABEL,
+            "weight": WEIGHT,
+            "stage_dim_id": STAGE_DIM_ID
+        })>
+    </cfloop>
+<cfcatch>
+    <cfset dbError = cfcatch.message & " | " & cfcatch.detail>
+</cfcatch>
+</cftry>
+
+<cfset wsJSON = serializeJSON(dbWorkstations)>
+<cfset cellJSON = serializeJSON(dbCells)>
 </cfsilent>
 <!--- Üretim Matrisi - Proje Modülünden Bire Bir Alındı --->
 <div class="matrix-modal">
@@ -53,12 +101,12 @@
 .matrix-title-section { display: flex; align-items: center; gap: 10px; }
 .matrix-title { font-size: 15px; font-weight: 600; color: #333; }
 .matrix-pct { background: #e8f5e9; color: #2e7d32; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-.matrix-actions { display: flex; gap: 6px; }
+.matrix-actions { display: flex; gap: 6px; flex: 1; justify-content: flex-end; }
 .btn-ws-edit { padding: 6px 16px; border: none; border-radius: 4px; background: #0d6efd; cursor: pointer; font-size: 12px; color: #fff; font-weight: 500; }
 .btn-ws-edit:hover { background: #0b5ed7; }
 .btn-reset { padding: 6px 16px; border: 1px solid #ffc107; border-radius: 4px; background: #ffc107; cursor: pointer; font-size: 12px; color: #000; font-weight: 500; }
 .btn-reset:hover { background: #ffca2c; }
-.btn-close { padding: 6px 16px; border: 1px solid #6c757d; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333; font-weight: 500; }
+.btn-close { padding: 6px 16px; border: 1px solid #6c757d; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333; font-weight: 500; margin-left: auto; }
 .btn-close:hover { background: #f8f9fa; }
 .btn-save { padding: 6px 16px; border: none; border-radius: 4px; background: #198754; color: #fff; cursor: pointer; font-size: 12px; font-weight: 500; }
 .btn-save:hover { background: #157347; }
@@ -76,8 +124,7 @@
 .matrix-loading, .matrix-empty, .matrix-error { text-align: center; padding: 40px; color: #888; font-size: 13px; }
 .matrix-error { color: #d32f2f; }
 
-.matrix-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-@media (max-width: 768px) { .matrix-grid { grid-template-columns: 1fr; } }
+.matrix-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
 
 .matrix-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 4px; min-height: 36px; }
 .matrix-item:hover { background: #f0f0f0; }
@@ -105,7 +152,7 @@
 .ws-select-container { padding: 20px; }
 .ws-select-header { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 8px; }
 .ws-select-info { font-size: 12px; color: #666; margin-bottom: 16px; }
-.ws-select-list { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; padding: 4px; }
+.ws-select-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 400px; overflow-y: auto; padding: 4px; align-items: start; }
 .ws-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #fafafa; border: 1px solid #e0e0e0; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
 .ws-item:hover { background: #f0f0f0; border-color: #bdbdbd; }
 .ws-item:has(.ws-checkbox:checked) { background: #e3f2fd; border-color: #1976d2; }
@@ -128,33 +175,33 @@ var matrixData = null;
 var selectedWorkstations = [];
 
 console.log('Matrix params:', {taskId: matrixTaskId, projectId: currentMatrixProjectId, workId: currentMatrixWorkId});
+<cfif isDefined("dbError")>console.error('DB HATA:', '<cfoutput>#jsStringFormat(dbError)#</cfoutput>');</cfif>
 
-// Tüm istasyon grupları (hardcoded - DB'den bağımsız)
-var allWorkstationGroups = [
-    {workstation_id: 1, name: 'Yanyol İmalat', code: 'YANYOL'},
-    {workstation_id: 2, name: 'Direk İmalat', code: 'DIREK'},
-    {workstation_id: 3, name: 'Kanca Grubu İmalat', code: 'KANCA'},
-    {workstation_id: 4, name: 'Araba Yürüyüş İmalat', code: 'ARABA'}
-];
+// İstasyon grupları ve hücre tanımları (DB'den dinamik)
+var allWorkstationGroups = <cfoutput>#wsJSON#</cfoutput>;
+var allDefaultCells = (function() {
+    var raw = <cfoutput>#cellJSON#</cfoutput>;
+    return raw.map(function(c) {
+        return {
+            cell_def_id: c.cell_def_id || c.CELL_DEF_ID,
+            cell_label: c.cell_label || c.CELL_LABEL,
+            value_code: '',
+            weight: c.weight || c.WEIGHT || 1,
+            stage_dim_id: c.stage_dim_id || c.STAGE_DIM_ID
+        };
+    });
+})();
+// İstasyon key normalizasyonu
+allWorkstationGroups = allWorkstationGroups.map(function(ws) {
+    return {
+        workstation_id: ws.workstation_id || ws.WORKSTATION_ID,
+        code: ws.code || ws.CODE,
+        name: ws.name || ws.NAME
+    };
+});
 
-// Tüm hücre tanımları
-var allDefaultCells = [
-    {cell_def_id: 1, cell_label: 'Yanyol İmalat - Profil Kesim', value_code: '', weight: 1},
-    {cell_def_id: 2, cell_label: 'Yanyol İmalat - Yanyol Grubu Kesim', value_code: '', weight: 1},
-    {cell_def_id: 3, cell_label: 'Yanyol İmalat - Kaynak', value_code: '', weight: 1},
-    {cell_def_id: 4, cell_label: 'Yanyol İmalat - Montaj', value_code: '', weight: 1},
-    {cell_def_id: 5, cell_label: 'Yanyol İmalat - Boya', value_code: '', weight: 1},
-    {cell_def_id: 6, cell_label: 'Direk İmalat - Yük Grubu Kesim', value_code: '', weight: 1},
-    {cell_def_id: 7, cell_label: 'Direk İmalat - Ayak Grubu Kesim', value_code: '', weight: 1},
-    {cell_def_id: 8, cell_label: 'Direk İmalat - Kaynak', value_code: '', weight: 1},
-    {cell_def_id: 9, cell_label: 'Direk İmalat - Boya', value_code: '', weight: 1},
-    {cell_def_id: 10, cell_label: 'Kanca Grubu İmalat - Kanca Grubu Kesim', value_code: '', weight: 1},
-    {cell_def_id: 11, cell_label: 'Kanca Grubu İmalat - Torna', value_code: '', weight: 1},
-    {cell_def_id: 12, cell_label: 'Kanca Grubu İmalat - Kaynak', value_code: '', weight: 1},
-    {cell_def_id: 13, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Kimyasal', value_code: '', weight: 1},
-    {cell_def_id: 14, cell_label: 'Araba Yürüyüş İmalat - A Yürüyüş Boya', value_code: '', weight: 1},
-    {cell_def_id: 15, cell_label: 'Araba Yürüyüş İmalat - Yürüyüş Montaj', value_code: '', weight: 1}
-];
+console.log('allWorkstationGroups:', JSON.stringify(allWorkstationGroups));
+console.log('allDefaultCells count:', allDefaultCells.length, 'sample:', allDefaultCells.length > 0 ? JSON.stringify(allDefaultCells[0]) : 'EMPTY');
 
 function getStorageKey(type) {
     return 'matrix_' + type + '_order_' + matrixRefId + '_task_' + matrixTaskId;
@@ -163,6 +210,10 @@ function getStorageKey(type) {
 function getFilteredCells() {
     var filtered = allDefaultCells.filter(function(cell) {
         return selectedWorkstations.some(function(ws) {
+            // stage_dim_id ile eşleştir (güvenli), yoksa label ile fallback
+            if (cell.stage_dim_id && ws.workstation_id) {
+                return parseInt(cell.stage_dim_id) === parseInt(ws.workstation_id);
+            }
             return cell.cell_label.indexOf(ws.name) === 0;
         });
     });

@@ -1072,28 +1072,46 @@
     <cfcatch></cfcatch>
     </cftry>
     
-    <!--- Proje Tamamlanma Oranları (OPS_TASK → Sipariş avg → Proje avg) --->
+    <!--- Proje Tamamlanma Oranları: orderCompletionMap zaten var, sipariş→proje eşleştirmesini GET_PROJECT_ORDERS'tan al --->
     <cfset projectCompletionMap = {}>
-    <cftry>
-        <cfquery name="GET_PROJECT_COMPLETION" datasource="#DSN#">
-            SELECT O.PROJECT_ID, AVG(T.PERCENT_COMPLETE) AS AVG_PCT
-            FROM OPS_TASK T
-            INNER JOIN #DSN3#..ORDERS O ON T.REF_ID = O.ORDER_ID
-            WHERE T.REF_TYPE = 'ORDER' AND T.IS_ACTIVE = 1
-            GROUP BY O.PROJECT_ID
-        </cfquery>
-        <cfloop query="GET_PROJECT_COMPLETION">
-            <cfset projectCompletionMap[toString(PROJECT_ID)] = int(val(AVG_PCT))>
-        </cfloop>
-    <cfcatch></cfcatch>
-    </cftry>
+    <cfif structCount(orderCompletionMap) GT 0>
+        <cftry>
+            <!--- Her siparişin hangi projeye ait olduğunu bul --->
+            <cfset orderToProjectMap = {}>
+            <cfloop query="GET_PROJECT_ORDERS">
+                <cfset orderToProjectMap[toString(ORDER_ID)] = toString(PROJECT_ID)>
+            </cfloop>
+            
+            <!--- Proje bazında sipariş ortalamalarını hesapla --->
+            <cfset projectPctSums = {}>
+            <cfset projectPctCounts = {}>
+            <cfloop collection="#orderCompletionMap#" item="ordId">
+                <cfif structKeyExists(orderToProjectMap, ordId)>
+                    <cfset prjId = orderToProjectMap[ordId]>
+                    <cfif NOT structKeyExists(projectPctSums, prjId)>
+                        <cfset projectPctSums[prjId] = 0>
+                        <cfset projectPctCounts[prjId] = 0>
+                    </cfif>
+                    <cfset projectPctSums[prjId] = projectPctSums[prjId] + orderCompletionMap[ordId]>
+                    <cfset projectPctCounts[prjId] = projectPctCounts[prjId] + 1>
+                </cfif>
+            </cfloop>
+            
+            <cfloop collection="#projectPctSums#" item="prjId">
+                <cfif projectPctCounts[prjId] GT 0>
+                    <cfset projectCompletionMap[prjId] = int(projectPctSums[prjId] / projectPctCounts[prjId])>
+                </cfif>
+            </cfloop>
+        <cfcatch></cfcatch>
+        </cftry>
+    </cfif>
     
-    <!--- OPS_TASK bazlı COMPLETION_RATE'i ana sorguya yaz (varsa üzerine yazar, yoksa PRO_WORKS değeri kalır) --->
+    <!--- OPS_TASK bazlı COMPLETION_RATE'i ana sorguya yaz --->
     <cfif GET_PROJECT_OPERATIONS.recordcount GT 0 AND structCount(projectCompletionMap) GT 0>
         <cfloop query="GET_PROJECT_OPERATIONS">
             <cfset pKey = toString(GET_PROJECT_OPERATIONS.PROJECT_ID)>
             <cfif structKeyExists(projectCompletionMap, pKey)>
-                <cfset querySetCell(GET_PROJECT_OPERATIONS, "COMPLETION_RATE", projectCompletionMap[pKey], currentRow)>
+                <cfset querySetCell(GET_PROJECT_OPERATIONS, "COMPLETION_RATE", projectCompletionMap[pKey], GET_PROJECT_OPERATIONS.currentRow)>
             </cfif>
         </cfloop>
     </cfif>
