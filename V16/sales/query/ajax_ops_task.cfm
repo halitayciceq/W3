@@ -33,6 +33,7 @@
 <cfset currentEmployeeId = isDefined("session.ep.employee_id") ? session.ep.employee_id : 0>
 <cfset currentBranchId = isDefined("session.ep.branch_id") ? session.ep.branch_id : 0>
 <cfset currentCompanyId = isDefined("session.ep.company_id") ? session.ep.company_id : 1>
+<cfset isAdmin = (isDefined("session.ep.admin") AND session.ep.admin eq 1) ? true : false>
 
 <cfset response = {
     "success": false,
@@ -808,6 +809,29 @@
             </cfif>
         </cfcase>
         
+        <!--- ========== CREATE FROM TEMPLATE (Rapor kısayolu) ========== --->
+        <cfcase value="create_from_template">
+            <cfparam name="form.ref_type" default="ORDER">
+            <cfparam name="form.ref_id" default="0">
+            <cfparam name="form.template_id" default="-1">
+            <cfparam name="form.strategy" default="skip_existing">
+            <cfparam name="form.company_id" default="#currentCompanyId#">
+            <cfparam name="form.branch_id" default="#currentBranchId#">
+            
+            <cfset taskService = createObject("component", "V16.sales.cfc.ops_task_service")>
+            <cfset createResult = taskService.batchCreate(form.ref_type, form.ref_id, form.template_id, "", form.strategy, currentEmployeeId, form.company_id, form.branch_id)>
+            
+            <cfset response.success = createResult.success>
+            <cfset response.message = createResult.message>
+            <cfif createResult.success>
+                <cfset response.data = {
+                    "batch_id": createResult.batch_id,
+                    "summary": createResult.summary,
+                    "items": createResult.items
+                }>
+            </cfif>
+        </cfcase>
+        
         <!--- ========== EMPLOYEE SEARCH ========== --->
         <cfcase value="employee_search">
             <cfparam name="form.q" default="">
@@ -859,6 +883,67 @@
                 <cfset response.success = false>
                 <cfset response.message = "Proje bulunamadı">
             </cfif>
+        </cfcase>
+        
+        <!--- ========== UPDATE PROJECT (Inline Edit) ========== --->
+        <cfcase value="update_project">
+            <cfparam name="form.project_id" default="0">
+            <cfparam name="form.field" default="">
+            <cfparam name="form.value" default="">
+            
+            <cfswitch expression="#form.field#">
+                <cfcase value="project_head">
+                    <cfquery datasource="#dsn#">
+                        UPDATE PRO_PROJECTS SET PROJECT_HEAD = <cfqueryparam value="#form.value#" cfsqltype="cf_sql_varchar"> WHERE PROJECT_ID = <cfqueryparam value="#form.project_id#" cfsqltype="cf_sql_integer">
+                    </cfquery>
+                </cfcase>
+                <cfcase value="process_cat">
+                    <cfquery datasource="#dsn#">
+                        UPDATE PRO_PROJECTS SET PROCESS_CAT = <cfqueryparam value="#form.value#" cfsqltype="cf_sql_integer"> WHERE PROJECT_ID = <cfqueryparam value="#form.project_id#" cfsqltype="cf_sql_integer">
+                    </cfquery>
+                </cfcase>
+                <cfcase value="priority">
+                    <cfquery datasource="#dsn#">
+                        UPDATE PRO_PROJECTS SET PRO_PRIORITY_ID = <cfqueryparam value="#form.value#" cfsqltype="cf_sql_integer"> WHERE PROJECT_ID = <cfqueryparam value="#form.project_id#" cfsqltype="cf_sql_integer">
+                    </cfquery>
+                </cfcase>
+                <cfcase value="target_start">
+                    <cfquery datasource="#dsn#">
+                        UPDATE PRO_PROJECTS SET TARGET_START = <cfqueryparam value="#form.value#" cfsqltype="cf_sql_timestamp" null="#NOT isDate(form.value)#"> WHERE PROJECT_ID = <cfqueryparam value="#form.project_id#" cfsqltype="cf_sql_integer">
+                    </cfquery>
+                </cfcase>
+                <cfcase value="target_finish">
+                    <cfquery datasource="#dsn#">
+                        UPDATE PRO_PROJECTS SET TARGET_FINISH = <cfqueryparam value="#form.value#" cfsqltype="cf_sql_timestamp" null="#NOT isDate(form.value)#"> WHERE PROJECT_ID = <cfqueryparam value="#form.project_id#" cfsqltype="cf_sql_integer">
+                    </cfquery>
+                </cfcase>
+            </cfswitch>
+            
+            <cfset response.success = true>
+            <cfset response.message = "Proje güncellendi">
+        </cfcase>
+        
+        <!--- ========== UPDATE TIME (Inline Süre) ========== --->
+        <cfcase value="update_time">
+            <cfparam name="form.task_id" default="0">
+            <cfparam name="form.field" default="">
+            <cfparam name="form.value" default="0">
+            
+            <cfif form.field EQ "estimated_minutes">
+                <cfquery datasource="#dsn#">
+                    UPDATE OPS_TASK SET ESTIMATED_MINUTES = <cfqueryparam value="#val(form.value)#" cfsqltype="cf_sql_integer">,
+                    UPDATED_DATE = GETDATE(), UPDATED_BY = <cfqueryparam value="#currentEmployeeId#" cfsqltype="cf_sql_integer">
+                    WHERE TASK_ID = <cfqueryparam value="#form.task_id#" cfsqltype="cf_sql_integer">
+                </cfquery>
+            <cfelseif form.field EQ "actual_minutes">
+                <cfquery datasource="#dsn#">
+                    UPDATE OPS_TASK SET ACTUAL_MINUTES = <cfqueryparam value="#val(form.value)#" cfsqltype="cf_sql_integer">,
+                    UPDATED_DATE = GETDATE(), UPDATED_BY = <cfqueryparam value="#currentEmployeeId#" cfsqltype="cf_sql_integer">
+                    WHERE TASK_ID = <cfqueryparam value="#form.task_id#" cfsqltype="cf_sql_integer">
+                </cfquery>
+            </cfif>
+            
+            <cfset response.success = true>
         </cfcase>
         
         <!--- ========== DEFAULT ========== --->
