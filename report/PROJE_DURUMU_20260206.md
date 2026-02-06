@@ -50,6 +50,38 @@ cp "/Volumes/prod/documents/report/DOSYA_ADI.cfm" ~/Documents/W3/report/ && cd ~
 - **Git Repo:** `~/Documents/W3/report/`
 - Dosyalar önce prod'da düzenlenir, sonra W3'e kopyalanıp push edilir
 
+### SSH Bilgileri
+```bash
+# SSH Key Dosyaları
+~/.ssh/id_ed25519      # Private key
+~/.ssh/id_ed25519.pub  # Public key
+~/.ssh/config          # SSH config
+~/.ssh/known_hosts     # Bilinen hostlar
+
+# GitHub SSH URL
+git@github.com:halitayciceq/W3.git
+
+# SSH Bağlantı Testi
+ssh -T git@github.com
+# Başarılı çıktı: "Hi halitayciceq! You've successfully authenticated..."
+
+# Public Key'i Görüntüle (GitHub'a eklemek için)
+cat ~/.ssh/id_ed25519.pub
+```
+
+### SSH Key Yoksa Oluşturma
+```bash
+# Yeni SSH key oluştur
+ssh-keygen -t ed25519 -C "email@example.com"
+
+# SSH agent'a ekle
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+
+# Public key'i kopyala ve GitHub > Settings > SSH Keys'e ekle
+cat ~/.ssh/id_ed25519.pub
+```
+
 ---
 
 ## ✅ TAMAMLANAN İŞLER
