@@ -1940,16 +1940,11 @@
             if (orderBtn) {
                 var orderRow = orderBtn.closest('tr');
                 if (orderRow) {
-                    var pctBar = orderRow.querySelector('.bg-teal-500');
-                    var pctText = orderRow.querySelectorAll('span');
+                    var pctBar = orderRow.querySelector('.bg-gray-200 .bg-teal-500');
+                    if (!pctBar) pctBar = orderRow.querySelector('div.h-full.bg-teal-500');
+                    var pctSpan = orderRow.querySelector('.text-gray-500');
                     if (pctBar) pctBar.style.width = Math.round(orderPct) + '%';
-                    // Sipariş satırındaki % text'i bul
-                    for (var i = 0; i < pctText.length; i++) {
-                        if (pctText[i].textContent.indexOf('%') !== -1 && pctText[i].classList.contains('text-gray-500')) {
-                            pctText[i].textContent = Math.round(orderPct) + '%';
-                            break;
-                        }
-                    }
+                    if (pctSpan) pctSpan.textContent = Math.round(orderPct) + '%';
                 }
             }
         }
