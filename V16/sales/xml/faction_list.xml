@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SETUP_SITE>
+	<SETUPSITE>
+		<LINK_NAME>Ziyaret Takip Yetkisi XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.form_add_visit,sales.form_upd_visit</LINK_FILE> 
+		<LINK_DETAIL>Ziyaret Planı Gösterim Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Sipariş XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.form_add_order,sales.form_upd_order</LINK_FILE> 
+		<LINK_DETAIL>Satış Siparişi Gösterim Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Fırsat XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.form_add_opportunity,sales.form_upd_opportunity</LINK_FILE> 
+		<LINK_DETAIL>Fırsat Gösterim Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Teklif XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.form_add_offer,sales.detail_offer_tv</LINK_FILE> 
+		<LINK_DETAIL>Teklif Gösterim Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Sipariş Listesi XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.list_order</LINK_FILE> 
+		<LINK_DETAIL>Sipariş Listesi XML Setup</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Sistem Güncelle XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.upd_subscription_contract</LINK_FILE> 
+		<LINK_DETAIL>Sistem Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Sistem Ekle XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.add_subscription_contract</LINK_FILE> 
+		<LINK_DETAIL>Sistem Ekleme</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Fırsat XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.list_opportunity</LINK_FILE> 
+		<LINK_DETAIL>Fırsat Listesi</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Taksitli Satış XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.add_fast_sale</LINK_FILE> 
+		<LINK_DETAIL>Taksitli Satış</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Teklif Listesi XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.list_offer</LINK_FILE> 
+		<LINK_DETAIL>Teklif Listesi</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Ödeme Planı XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.popup_subscription_payment_plan</LINK_FILE> 
+		<LINK_DETAIL>Ödeme Planı</LINK_DETAIL>
+	</SETUPSITE>
+		<SETUPSITE>
+		<LINK_NAME>Ödeme Planı XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.popup_dsp_subscription_payment_plan</LINK_FILE> 
+		<LINK_DETAIL>Ödeme Planı</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Sistem İptal XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.popup_subscription_to_cancel</LINK_FILE> 
+		<LINK_DETAIL>Sistem İptal</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Uyarı Kaydetme XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.popup_form_add_opp_plus</LINK_FILE> 
+		<LINK_DETAIL>Uyarı Kaydetme Çalışsın mı?</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Aboneler XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.list_subscription_contract</LINK_FILE> 
+		<LINK_DETAIL>Aboneler Listesi</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Ziyaretler XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.list_visit</LINK_FILE> 
+		<LINK_DETAIL>Ziyaretler Listesi</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Teklifler XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.popup_list_offer</LINK_FILE> 
+		<LINK_DETAIL>Teklif Listesi</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Takipler XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.list_order_demands</LINK_FILE> 
+		<LINK_DETAIL>Takipler Listesi</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Operasyonlar XML Setup</LINK_NAME> 
+		<LINK_FILE>sales.popup_list_actions</LINK_FILE> 
+		<LINK_DETAIL>Operasyonlar Listesi</LINK_DETAIL>
+	</SETUPSITE>
+</SETUP_SITE>

@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<OBJECT_PROPERTIES>
+	<OBJECT_PROPERTY>
+		<PROPERTY>xml_service_definition</PROPERTY>
+		<PROPERTY_DETAIL>Hizmet Tanımları Görüntülensin</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>0</PROPERTY_DEFAULT>
+		<PROPERTY_HELP>Eğer Evet Olarak Seçilirse Abone Detayında Hizmet Tanımları Görüntülenir.</PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+	<OBJECT_PROPERTY>
+		<PROPERTY>xml_system_product_plan_closed</PROPERTY>
+		<PROPERTY_DETAIL>Abone Ürün Planı Görüntülensin mi?</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>1</PROPERTY_DEFAULT>
+		<PROPERTY_HELP>Abone Ürün Planı Açık Görüntülensin mi? Evet seçilirse Ekleme sayfasında ürün planı görünür.</PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+</OBJECT_PROPERTIES>

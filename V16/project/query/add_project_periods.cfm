@@ -1,0 +1,132 @@
+<cfset mylist=ListToArray(attributes.for_control)>
+<cfquery name="DEL_PERIODS" datasource="#DSN3#">
+	DELETE FROM	PROJECT_PERIOD WHERE PROJECT_ID=#attributes.project_id# AND PERIOD_ID=#attributes.period_main_id#
+</cfquery>
+<cfset muhasebe_kodu = evaluate("account_code_sale")>
+<cfset muhasebe_kodu_purchase = evaluate("account_code_purchase")>
+<cfquery name="ADD_PROJECT_PERIODS" datasource="#DSN3#">
+	INSERT INTO 
+		PROJECT_PERIOD
+		(
+			PROJECT_ID,  
+			PERIOD_ID,
+			ACCOUNT_CODE,
+			ACCOUNT_CODE_PUR,
+			ACCOUNT_DISCOUNT,
+			ACCOUNT_PRICE,
+			ACCOUNT_PRICE_PUR,
+			ACCOUNT_PUR_IADE,
+			ACCOUNT_IADE,
+			ACCOUNT_DISCOUNT_PUR,
+			ACCOUNT_YURTDISI,					
+			ACCOUNT_YURTDISI_PUR,
+			EXPENSE_CENTER_ID,
+			EXPENSE_ITEM_ID,
+			INCOME_ITEM_ID,
+			EXPENSE_TEMPLATE_ID,
+			ACTIVITY_TYPE_ID,
+			COST_EXPENSE_CENTER_ID,
+			INCOME_ACTIVITY_TYPE_ID,
+			INCOME_TEMPLATE_ID,
+			ACCOUNT_LOSS,
+			ACCOUNT_EXPENDITURE,
+			OVER_COUNT,
+			UNDER_COUNT,
+			PRODUCTION_COST,
+			HALF_PRODUCTION_COST,
+			SALE_PRODUCT_COST,
+			MATERIAL_CODE,
+			KONSINYE_PUR_CODE,
+			KONSINYE_SALE_CODE,
+			KONSINYE_SALE_NAZ_CODE,
+			DIMM_CODE,
+			DIMM_YANS_CODE,
+			PROMOTION_CODE,
+            RECEIVED_PROGRESS_CODE,
+            PROVIDED_PROGRESS_CODE,
+            INCOME_PROGRESS_CODE,
+            EXPENSE_PROGRESS_CODE,
+			SALE_MANUFACTURED_COST,
+			INVENTORY_CAT_ID,
+			INVENTORY_CODE,
+			AMORTIZATION_METHOD_ID,
+			AMORTIZATION_TYPE_ID,
+			AMORTIZATION_EXP_CENTER_ID,
+			AMORTIZATION_EXP_ITEM_ID,
+			AMORTIZATION_CODE,
+			SCRAP_CODE,
+			MATERIAL_CODE_SALE,
+			PRODUCTION_COST_SALE,
+			SCRAP_CODE_SALE,
+            EXE_VAT_SALE_INVOICE,
+            PROJECT_PERIOD_CAT_ID,
+            RECORD_DATE,
+            RECORD_EMP,
+            RECORD_IP
+		)
+		VALUES
+		(
+			#attributes.project_id#,
+			#attributes.period_main_id#,
+			<cfif isdefined('muhasebe_kodu') and len(muhasebe_kodu)>'#muhasebe_kodu#'<cfelse>NULL</cfif>,
+			<cfif isdefined('muhasebe_kodu_purchase') and len(muhasebe_kodu_purchase)>'#muhasebe_kodu_purchase#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.account_discount') and len(attributes.account_discount)>'#account_discount#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.account_price') and len(attributes.account_price)>'#ACCOUNT_PRICE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.account_price_pur') and len(attributes.account_price_pur)>'#ACCOUNT_PRICE_PUR#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.account_pur_iade') and len(attributes.account_pur_iade)>'#ACCOUNT_PUR_IADE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.account_iade') and len(attributes.account_iade)>'#ACCOUNT_IADE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.account_discount') and len(attributes.ACCOUNT_DISCOUNT_PUR)>'#ACCOUNT_DISCOUNT_PUR#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.ACCOUNT_DISCOUNT_PUR') and len(attributes.ACCOUNT_YURTDISI)>'#ACCOUNT_YURTDISI#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.ACCOUNT_YURTDISI_PUR') and len(attributes.ACCOUNT_YURTDISI_PUR)>'#ACCOUNT_YURTDISI_PUR#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.expense_center') and len(attributes.expense_center)>#attributes.expense_center#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.expense_item') and len(attributes.expense_item)>#attributes.expense_item#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.income_item') and len(attributes.income_item)>#attributes.income_item#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.expense_template') and len(attributes.expense_template)>#attributes.expense_template#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.activity_type') and len(attributes.activity_type)>#attributes.activity_type#,<cfelse>NULL,</cfif>
+			<cfif isdefined('attributes.expense_center_gider') and len(attributes.expense_center_gider)>#attributes.expense_center_gider#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.activity_type_income') and len(attributes.activity_type_income)>#attributes.activity_type_income#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.expense_template_income') and len(attributes.expense_template_income)>#attributes.expense_template_income#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.ACCOUNT_LOSS') and len(attributes.ACCOUNT_LOSS)>'#ACCOUNT_LOSS#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.ACCOUNT_EXPENDITURE') and len(attributes.ACCOUNT_EXPENDITURE)>'#ACCOUNT_EXPENDITURE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.OVER_COUNT') and len(attributes.OVER_COUNT)>'#OVER_COUNT#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.UNDER_COUNT') and len(attributes.UNDER_COUNT)>'#UNDER_COUNT#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.PRODUCTION_COST') and len(attributes.PRODUCTION_COST)>'#PRODUCTION_COST#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.HALF_PRODUCTION_COST') and len(attributes.HALF_PRODUCTION_COST)>'#HALF_PRODUCTION_COST#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.SALE_PRODUCT_COST') and len(attributes.SALE_PRODUCT_COST)>'#SALE_PRODUCT_COST#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.MATERIAL_CODE') and len(attributes.MATERIAL_CODE)>'#MATERIAL_CODE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.KONSINYE_PUR_CODE') and len(attributes.KONSINYE_PUR_CODE)>'#KONSINYE_PUR_CODE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.KONSINYE_SALE_CODE') and len(attributes.KONSINYE_SALE_CODE)>'#KONSINYE_SALE_CODE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.KONSINYE_SALE_NAZ_CODE') and len(attributes.KONSINYE_SALE_NAZ_CODE)>'#KONSINYE_SALE_NAZ_CODE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.DIMM_CODE') and len(attributes.DIMM_CODE)>'#DIMM_CODE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.DIMM_YANS_CODE') and len(attributes.DIMM_YANS_CODE)>'#DIMM_YANS_CODE#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.PROMOTION_CODE') and len(attributes.PROMOTION_CODE)>'#PROMOTION_CODE#'<cfelse>NULL</cfif>,
+            <cfif isdefined('attributes.received_progress_code') and len(attributes.received_progress_code)>'#attributes.received_progress_code#'<cfelse>NULL</cfif>,
+            <cfif isdefined('attributes.provided_progress_code') and len(attributes.provided_progress_code)>'#attributes.provided_progress_code#'<cfelse>NULL</cfif>,
+            <cfif isdefined('attributes.income_progress_code') and len(attributes.income_progress_code)>'#attributes.income_progress_code#'<cfelse>NULL</cfif>,
+            <cfif isdefined('attributes.expense_progress_code') and len(attributes.expense_progress_code)>'#attributes.expense_progress_code#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.sale_manufactured_cost') and len(attributes.sale_manufactured_cost)>'#attributes.sale_manufactured_cost#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.inventory_cat_id') and len(attributes.inventory_cat_id)>#attributes.inventory_cat_id#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.inventory_code') and len(attributes.inventory_code)>'#attributes.inventory_code#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.amortization_method_id') and len(attributes.amortization_method_id)>#attributes.amortization_method_id#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.amortization_type_id') and len(attributes.amortization_type_id)>#attributes.amortization_type_id#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.amortization_exp_center_id') and len(attributes.amortization_exp_center_id)>#attributes.amortization_exp_center_id#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.amortization_exp_item_id') and len(attributes.amortization_exp_item_id)>#attributes.amortization_exp_item_id#<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.amortization_code') and len(attributes.amortization_code)>'#attributes.amortization_code#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.scrap_code') and len(attributes.scrap_code)>'#attributes.scrap_code#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.material_code_sale') and len(attributes.material_code_sale)>'#attributes.material_code_sale#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.production_cost_sale') and len(attributes.production_cost_sale)>'#attributes.production_cost_sale#'<cfelse>NULL</cfif>,
+			<cfif isdefined('attributes.scrap_code_sale') and len(attributes.scrap_code_sale)>'#attributes.scrap_code_sale#'<cfelse>NULL</cfif>,
+            <cfif isdefined("attributes.exe_vat_sale_invoice") and len(attributes.exe_vat_sale_invoice)>'#attributes.exe_vat_sale_invoice#'<cfelse>NULL</cfif>,
+            <cfif isdefined("attributes.project_period_cat_id") and len(attributes.project_period_cat_id)>#attributes.project_period_cat_id#<cfelse>NULL</cfif>,
+            #now()#,
+            #session.ep.userid#,
+            '#cgi.remote_addr#'
+		)
+</cfquery>
+<script type="text/javascript">
+	<cfif not isdefined("attributes.draggable")>
+		window.close();
+	<cfelse>
+		closeBoxDraggable( '<cfoutput>#attributes.modal_id#</cfoutput>' );
+	</cfif>
+</script>

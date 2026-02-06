@@ -1,0 +1,13 @@
+<cfquery name="GET_ORDER_ROWS" DATASOURCE="#DSN3#" BLOCKFACTOR="10">
+	SELECT 
+		* 
+	FROM
+	 	ORDER_ROW 
+		ORR, 
+		PRODUCT P, 
+		STOCKS S
+	WHERE 
+		ORR.ORDER_ID =  #URL.order_id# AND 
+		P.PRODUCT_ID = S.PRODUCT_ID AND
+		S.STOCK_ID = ORR.STOCK_ID
+</cfquery>

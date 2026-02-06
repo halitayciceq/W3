@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<OBJECT_PROPERTIES>
+  <OBJECT_PROPERTY>
+		<PROPERTY>x_timecost_limited</PROPERTY>
+		<PROPERTY_DETAIL>Zaman Harcaması 24 Saatten Fazla Girilebilsin</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>0</PROPERTY_DEFAULT>
+		<PROPERTY_HELP></PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+	<OBJECT_PROPERTY>
+		<PROPERTY>xml_timecost_rows</PROPERTY>
+		<PROPERTY_DETAIL>Satırlarda Öncelik Sıralaması</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>input</PROPERTY_TYPE>
+		<PROPERTY_VALUES></PROPERTY_VALUES>
+		<PROPERTY_NAMES></PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>1,2,3,4,5,6,7,8,9,10,11,12,13</PROPERTY_DEFAULT>
+		<PROPERTY_HELP>1.Çalışan - Şube/Departman, 2.Ürün, 3.Açıklama, 4.Tarih, 5.Saat, 6.Dk, 7.Mesai Tipi, 8.Proje, 9.İş, 10.Aktiviteler, 11.Cari Hesap, 12.Masraf Merkezi, 13.Durum Yazılmayan Kolonlar Listede Görüntülenmeyecektir. Ayrıca Çalışan,Açıklama,Tarih,Saat,Dk alanları kaldırılmamalıdır. Kaldırıldığı takdirde eklerken sayfa hata verecektir.</PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+</OBJECT_PROPERTIES>

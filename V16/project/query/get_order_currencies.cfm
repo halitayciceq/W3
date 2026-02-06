@@ -1,0 +1,9 @@
+<cfquery name="GET_ORDER_CURRENCIES" datasource="#dsn3#">
+	SELECT
+		ORDER_CURRENCY_ID, 
+		ORDER_CURRENCY
+	FROM
+		ORDER_CURRENCY
+	ORDER BY
+		ORDER_CURRENCY
+</cfquery>

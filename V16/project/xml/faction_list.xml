@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<SETUP_SITE>
+	<SETUPSITE>
+		<LINK_NAME>Proje İş Grubu XML Setup</LINK_NAME>
+		<LINK_FILE>project.popup_add_workgroup</LINK_FILE>
+		<LINK_DETAIL>İş Grubu Gösterim Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Proje Detayı XML Setup</LINK_NAME>
+		<LINK_FILE>project.prodetail,project.graph,project.graph,employee_work_graph</LINK_FILE>
+		<LINK_DETAIL>Proje Gösterim Detayları</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Proje Ekleme - Güncelleme XML Setup</LINK_NAME>
+		<LINK_FILE>project.addpro,project.popup_updpro</LINK_FILE>
+		<LINK_DETAIL>Proje Ekleme - Güncelleme Kontrolleri</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Proje İş Listesi XML Setup</LINK_NAME>
+		<LINK_FILE>project.works</LINK_FILE>
+		<LINK_DETAIL>Proje İş Listesi Gösterim</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Proje Aksiyon Listesi XML Setup</LINK_NAME>
+		<LINK_FILE>project.popup_list_project_actions</LINK_FILE>
+		<LINK_DETAIL>Proje Aksiyon Listesi Gösterim</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>İş XML Setup</LINK_NAME>
+		<LINK_FILE>project.addwork</LINK_FILE>
+		<LINK_DETAIL>Öngörülen Süreye göre Bitiş Tarihi Hesaplanması</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Proje listesi XML Setup</LINK_NAME>
+		<LINK_FILE>project.projects</LINK_FILE>
+		<LINK_DETAIL>Proje Kategorisi Gösterim</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>İş Kopyala XML Setup</LINK_NAME>
+		<LINK_FILE>project.popup_project_work</LINK_FILE>
+		<LINK_DETAIL>İş Kopyala Gösterim</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Kaynak Kullanım Seyri XML Setup</LINK_NAME>
+		<LINK_FILE>project.employee_work_graph</LINK_FILE>
+		<LINK_DETAIL>Kaynak Kullanım Seyri</LINK_DETAIL>
+	</SETUPSITE>
+	<SETUPSITE>
+		<LINK_NAME>Planlanan ve Gerçekleşen Zaman Harcaması XML Setup</LINK_NAME>
+		<LINK_FILE>project.popup_add_planned_actual_timecost</LINK_FILE>
+		<LINK_DETAIL>Planlanan ve Gerçekleşen Zaman Harcaması</LINK_DETAIL>
+	</SETUPSITE>
+</SETUP_SITE>

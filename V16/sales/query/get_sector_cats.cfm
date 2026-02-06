@@ -1,0 +1,19 @@
+<cfquery name="GET_SECTOR_CATS" datasource="#dsn#">
+	SELECT 
+    	SECTOR_CAT_ID, 
+        SECTOR_UPPER_ID, 
+        SECTOR_CAT, 
+        SECTOR_LIMIT, 
+        IS_INTERNET, 
+        SECTOR_IMAGE, 
+        SERVER_SECTOR_IMAGE_ID, 
+        RECORD_EMP, 
+        RECORD_DATE, 
+        RECORD_IP, 
+        UPDATE_EMP, 
+        UPDATE_DATE, 
+        UPDATE_IP, 
+        SECTOR_CAT_CODE 
+    FROM 
+	    SETUP_SECTOR_CATS
+</cfquery>

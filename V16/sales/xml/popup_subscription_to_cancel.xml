@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<OBJECT_PROPERTIES>
+	<OBJECT_PROPERTY>
+		<PROPERTY>xml_control_camp</PROPERTY>
+		<PROPERTY_DETAIL>Kampanya Kontrolü Yapılsın mı?</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>0</PROPERTY_DEFAULT>
+		<PROPERTY_HELP>Eğer evet olarak seçilirse ödeme planı satırlarında ödeme tarihi girilen tarihten sonra olan , faturalanmamış ve taahhütlü kampanya ilişkisi olan satırlar varsa iptal işlemi yapılırken uyarı verir.</PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+</OBJECT_PROPERTIES>

@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<OBJECT_PROPERTIES>
+  <OBJECT_PROPERTY>
+		<PROPERTY>xml_control_project_emp</PROPERTY>
+		<PROPERTY_DETAIL>Gant Şemasını Sadece Proje Görevlisi Düzenlesin</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>0</PROPERTY_DEFAULT>
+		<PROPERTY_HELP> Gant şeması üzerindeki düzenleme ve planlama sadece proje görevlisi tarafından yapılmasını sağlar. Proje görevlisi dışındaki kullanıcılar , sadece ekranı izleyebilir.</PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+	<OBJECT_PROPERTY>
+		<PROPERTY>xml_control_employee_branch</PROPERTY>
+		<PROPERTY_DETAIL>Kaynak Kullanım Detayı Şube - Departman İlişkisine Göre Gösterilsin</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>0</PROPERTY_DEFAULT>
+		<PROPERTY_HELP>Kaynak kullanım seyri ekranında listelinen görevlileri , kişinin şube departman yetkisine bakarark görüntüleme yapmasını sağlar.</PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+	<OBJECT_PROPERTY>
+		<PROPERTY>xml_control_change_graph</PROPERTY>
+		<PROPERTY_DETAIL>Gant Şeması Üzerinde Değişiklik Yapılabilsin</PROPERTY_DETAIL>
+		<PROPERTY_TYPE>select</PROPERTY_TYPE>
+		<PROPERTY_VALUES>1,0</PROPERTY_VALUES>
+		<PROPERTY_NAMES>Evet,Hayır</PROPERTY_NAMES>
+		<PROPERTY_DEFAULT>1</PROPERTY_DEFAULT>
+		<PROPERTY_HELP></PROPERTY_HELP>
+	</OBJECT_PROPERTY>
+</OBJECT_PROPERTIES>

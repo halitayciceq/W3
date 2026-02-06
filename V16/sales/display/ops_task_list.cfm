@@ -1,0 +1,697 @@
+<!--- Sipariş Operasyon Görevleri - Liste --->
+<style>
+.ops-task-row.drag-over { background-color: #e3f2fd !important; border-top: 2px solid #2196F3 !important; }
+.drag-handle:hover { color: #333 !important; }
+input.pct-input { 
+    width: 48px !important; 
+    padding: 4px 6px !important; 
+    font-size: 12px !important; 
+    text-align: center !important; 
+    border: 1px solid #d1d5db !important; 
+    border-radius: 6px !important; 
+    outline: none !important;
+    background: #fff !important;
+    height: auto !important;
+    box-shadow: none !important;
+}
+input.pct-input:focus { 
+    border-color: #14b8a6 !important; 
+    box-shadow: 0 0 0 2px rgba(20,184,166,0.2) !important; 
+}
+input.pct-input.pct-disabled,
+input.pct-input:disabled { 
+    background: #f3f4f6 !important; 
+    cursor: not-allowed !important; 
+}
+</style>
+<cfparam name="url.ref_type" default="ORDER">
+<cfparam name="url.ref_id" default="0">
+<cfparam name="url.company_id" default="#session.ep.company_id#">
+
+<!--- Sipariş Sevk Tarihini Al --->
+<cfset shipDate = "">
+<cfif url.ref_type EQ "ORDER" AND val(url.ref_id) GT 0>
+    <cftry>
+        <cfquery name="qOrder" datasource="#dsn3#">
+            SELECT SHIP_DATE FROM ORDERS WHERE ORDER_ID = <cfqueryparam value="#url.ref_id#" cfsqltype="cf_sql_integer">
+        </cfquery>
+        <cfif qOrder.recordCount AND isDate(qOrder.SHIP_DATE)>
+            <cfset shipDate = dateFormat(qOrder.SHIP_DATE, "yyyy-mm-dd")>
+        </cfif>
+    <cfcatch></cfcatch>
+    </cftry>
+</cfif>
+
+<div id="ops-task-container" class="ops-task-module" style="padding:15px;">
+    
+    <!--- Toolbar --->
+    <div class="ops-task-toolbar d-flex justify-content-between align-items-center mb-3 p-2 bg-light rounded">
+        <div class="d-flex align-items-center gap-2">
+            <!--- Durum Filtresi --->
+            <select id="ops_task_filter_status" class="form-control form-control-sm" style="width: 140px;" onchange="OpsTask.loadList()">
+                <option value="">Tümü</option>
+                <!--- Aşamalar JS ile doldurulacak --->
+            </select>
+            
+            <!--- Sorumlu Filtresi --->
+            <select id="ops_task_filter_employee" class="form-control form-control-sm" style="width: 160px;">
+                <option value="">Tüm Sorumlular</option>
+            </select>
+        </div>
+        
+        <div class="d-flex align-items-center gap-2">
+            <!--- Yenile --->
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="OpsTask.loadList()" title="Yenile">
+                <i class="fa fa-refresh"></i>
+            </button>
+            
+            <!--- Yeni Görev --->
+            <button type="button" class="btn btn-sm btn-primary" onclick="OpsTask.openModal(0)" title="Yeni Görev">
+                <i class="fa fa-plus"></i> Yeni Görev
+            </button>
+            
+            <!--- Şablondan Oluştur (Wizard) --->
+            <button type="button" class="btn btn-sm btn-success" onclick="OpsTask.openWizard()" title="Şablondan Toplu Görev Oluştur">
+                <i class="fa fa-magic"></i> Şablondan Oluştur
+            </button>
+        </div>
+    </div>
+    
+    <!--- W3 Standart Grid --->
+    <table id="ops_task_grid" class="ui-table-list ui-form form_list" sort="true" border="1">
+        <thead>
+            <tr>
+                <th width="16" style="text-align:center"><i class="fa fa-bars" style="font-size:10px" title="Sürükle-Bırak"></i></th>
+                <th width="30" style="text-align:center">A</th>
+                <th width="220" style="text-align:left">Başlık</th>
+                <th width="70" style="text-align:center">Aşama</th>
+                <th width="80" style="text-align:center">Termin</th>
+                <th width="70" style="text-align:center">Öngörülen</th>
+                <th width="70" style="text-align:center">Harcanan</th>
+                <th width="20" style="text-align:center">%</th>
+                <th width="20"><a href="javascript:void(0)" title="Düzenle"><i class="fa fa-pencil"></i></a></th>
+                <th width="20"><a href="javascript:void(0)" title="Dosya Ekle"><i class="fa fa-file"></i></a></th>
+                <th width="20"><a href="javascript:void(0)" title="Matris"><i class="fa fa-th"></i></a></th>
+                <th width="20"><a href="javascript:void(0)" title="Alt Görev Ekle"><i class="fa fa-plus"></i></a></th>
+                <th width="20"><a href="javascript:void(0)" title="Sil"><i class="fa fa-minus"></i></a></th>
+            </tr>
+        </thead>
+        <tbody id="ops_task_tbody">
+            <tr>
+                <td colspan="12" style="text-align:center;padding:20px;">
+                    <i class="fa fa-spinner fa-spin"></i> Yükleniyor...
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!--- Boş Durum --->
+    <div id="ops_task_empty" class="text-center py-5" style="display: none;">
+        <i class="fa fa-tasks fa-3x text-muted mb-3"></i>
+        <p class="text-muted">Bu siparişe ait görev bulunmuyor.</p>
+        <button type="button" class="btn btn-primary" onclick="OpsTask.openModal(0)">
+            <i class="fa fa-plus"></i> İlk Görevi Oluştur
+        </button>
+    </div>
+    
+</div>
+
+<!--- Görev Modal --->
+<div class="modal fade" id="modal_ops_task" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal_ops_task_title">Yeni Görev</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modal_ops_task_body">
+                <!--- dsp_ops_task.cfm içeriği AJAX ile yüklenir --->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--- Matris Modal --->
+<div class="modal fade" id="modal_ops_task_matrix" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Görev Matrisi</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modal_ops_task_matrix_body">
+                <!--- Matris içeriği AJAX ile yüklenir --->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" onclick="OpsTask.saveMatrix()">
+                    <i class="fa fa-save"></i> Kaydet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--- Silme Onay Modal --->
+<div class="modal fade" id="modal_ops_task_delete" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Görev Sil</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Bu görevi silmek istediğinize emin misiniz?</p>
+                <p class="font-weight-bold" id="delete_task_name"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-danger" onclick="OpsTask.confirmDelete()">
+                    <i class="fa fa-trash"></i> Sil
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--- W3 Standart CSS --->
+<style>
+.ops-task-module { padding: 10px; }
+.ops-task-toolbar .gap-2 { gap: 0.5rem; }
+
+/* W3 iconBox */
+.iconBox {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    color: #fff;
+}
+
+/* W3 Table Styles */
+#ops_task_grid { width: 100%; border-collapse: collapse; }
+#ops_task_grid thead th {
+    background: linear-gradient(180deg, #00b4b4 0%, #009999 100%);
+    color: #fff;
+    padding: 8px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    border: 1px solid #008080;
+}
+#ops_task_grid tbody td {
+    padding: 6px 8px;
+    border: 1px solid #e0e0e0;
+    font-size: 12px;
+    vertical-align: middle;
+}
+#ops_task_grid tbody tr:nth-child(even) { background-color: #f8f9fa; }
+#ops_task_grid tbody tr:nth-child(odd) { background-color: #fff; }
+#ops_task_grid tbody tr:hover { background-color: #e8f4f8; }
+#ops_task_grid tbody tr td a { color: #008b8b; text-decoration: none; }
+#ops_task_grid tbody tr td a:hover { text-decoration: underline; }
+#ops_task_grid tbody tr td i { cursor: pointer; }
+#ops_task_grid tbody tr td i:hover { color: #008b8b !important; }
+
+/* Inline Edit Styles */
+.pkg-select-inline { padding: 3px 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 11px; background: #fff; cursor: pointer; }
+.pkg-select-inline:focus { border-color: #00b4b4; outline: none; }
+.pkg-input-inline { width: 45px; padding: 3px 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 11px; text-align: center; }
+.pkg-input-inline:focus { border-color: #00b4b4; outline: none; }
+.pkg-date-inline { width: 100px; text-align: left; }
+
+/* İsim Kısaltması Stili */
+.emp-short-name { 
+    font-size: 11px; font-weight: 500; color: #00838f; 
+    white-space: nowrap;
+}
+</style>
+
+<!--- JavaScript --->
+<script>
+function toTitleCase(str) {
+    if(!str) return '';
+    return str.toLowerCase().replace(/(?:^|\s|\/|-)\S/g, function(a) { return a.toUpperCase(); });
+}
+
+window.OpsTask = {
+    config: {
+        refType: '<cfoutput>#url.ref_type#</cfoutput>',
+        refId: <cfoutput>#val(url.ref_id)#</cfoutput>,
+        companyId: <cfoutput>#val(url.company_id)#</cfoutput>,
+        employeeId: <cfoutput>#isDefined('session.ep.employee_id') ? val(session.ep.employee_id) : 0#</cfoutput>,
+        shipDate: '<cfoutput>#shipDate#</cfoutput>',
+        ajaxUrl: '/V16/sales/query/ajax_ops_task.cfm',
+        taskFormUrl: '/V16/sales/form/dsp_ops_task.cfm'
+    },
+    tasks: [],
+    stages: [],
+    
+    init: function(){
+        console.log('[OpsTask] init', this.config);
+        this.loadList();
+    },
+    
+    loadList: function(){
+        var self = this;
+        var tbody = document.getElementById('ops_task_tbody');
+        var emptyDiv = document.getElementById('ops_task_empty');
+        
+        var formData = new FormData();
+        formData.append('action', 'list');
+        formData.append('ref_type', this.config.refType);
+        formData.append('ref_id', this.config.refId);
+        formData.append('company_id', this.config.companyId);
+        
+        var statusFilter = document.getElementById('ops_task_filter_status');
+        if(statusFilter && statusFilter.value) {
+            formData.append('status_id', statusFilter.value);
+        }
+        
+        fetch(this.config.ajaxUrl, { method: 'POST', body: formData })
+        .then(function(r){ return r.json(); })
+        .then(function(response){
+            console.log('AJAX response:', response);
+            if(response.success || response.SUCCESS){
+                self.tasks = response.data || response.DATA || [];
+                self.stages = response.stages || response.STAGES || [];
+                console.log('Stages loaded:', self.stages);
+                self.populateFilterDropdown();
+                if(self.tasks.length > 0){
+                    emptyDiv.style.display = 'none';
+                    self.renderList();
+                } else {
+                    tbody.innerHTML = '';
+                    emptyDiv.style.display = 'block';
+                }
+            } else {
+                alert(response.message || 'Hata oluştu');
+            }
+        });
+    },
+    
+    populateFilterDropdown: function(){
+        var select = document.getElementById('ops_task_filter_status');
+        if(!select || !this.stages) return;
+        
+        var currentVal = select.value;
+        select.innerHTML = '<option value="">Tümü</option>';
+        
+        for(var i=0; i<this.stages.length; i++){
+            var stg = this.stages[i];
+            var stgId = stg.stage_id || stg.STAGE_ID;
+            var stgName = stg.stage_name || stg.STAGE_NAME;
+            var opt = document.createElement('option');
+            opt.value = stgId;
+            opt.textContent = stgName;
+            if(currentVal == stgId) opt.selected = true;
+            select.appendChild(opt);
+        }
+    },
+    
+    renderList: function(){
+        var tbody = document.getElementById('ops_task_tbody');
+        var emptyDiv = document.getElementById('ops_task_empty');
+        var table = document.getElementById('ops_task_grid');
+        
+        if(!this.tasks || this.tasks.length === 0){
+            tbody.innerHTML = '';
+            if(table) table.style.display = 'none';
+            if(emptyDiv) emptyDiv.style.display = 'block';
+            return;
+        }
+        
+        if(table) table.style.display = 'table';
+        if(emptyDiv) emptyDiv.style.display = 'none';
+        
+        var html = '';
+        for(var i = 0; i < this.tasks.length; i++){
+            var t = this.tasks[i];
+            var priorityColor = t.priority_id == 3 ? '#FF6600' : (t.priority_id == 1 ? '#00CC00' : '#0099FF');
+            var priorityLetter = t.priority_id == 3 ? 'Y' : (t.priority_id == 1 ? 'D' : 'N');
+            var statusName = t.status_name || 'Planlama';
+            var estTime = t.estimated_minutes ? Math.floor(t.estimated_minutes/60) + 'S ' + (t.estimated_minutes%60) + 'D' : '0S 0D';
+            var actTime = t.actual_minutes ? Math.floor(t.actual_minutes/60) + 'S ' + (t.actual_minutes%60) + 'D' : '0S 0D';
+            
+            html += '<tr class="tr_a ops-task-row" data-task-id="' + t.task_id + '" draggable="true">';
+            // Drag Handle
+            html += '<td class="drag-handle" style="cursor:move;text-align:center;padding:0;"><i class="fa fa-bars" style="color:#999;font-size:10px"></i></td>';
+            // A - Avatar (resim varsa göster, yoksa male.jpg ikonu)
+            var avatarSrc = 'images/male.jpg';
+            if(t.emp_photo && t.emp_photo.length > 0) {
+                avatarSrc = '../../documents/hr/' + t.emp_photo;
+            }
+            var fullName = t.assigned_name || '';
+            html += '<td title="' + fullName + '"><img class="img-circle" src="' + avatarSrc + '" style="width:28px;height:28px;border-radius:50%;" title="' + fullName + '"></td>';
+            // Başlık (Title Case formatında)
+            html += '<td style="text-align:left"><a href="javascript:void(0)" onclick="OpsTask.openModal(' + t.task_id + ')">' + toTitleCase(t.task_head || '') + '</a></td>';
+            // Aşama - Inline Dropdown (DB'den dinamik - Tamamlandı seçilince %100)
+            html += '<td><select class="pkg-select-inline" onchange="OpsTask.updateStatus('+t.task_id+',this.value,this)">';
+            html += '<option value=""'+((!t.status_id)?' selected':'')+'>Seçiniz...</option>';
+            for(var s=0; s<this.stages.length; s++) {
+                var stg = this.stages[s];
+                var stgId = stg.stage_id || stg.STAGE_ID;
+                var stgName = stg.stage_name || stg.STAGE_NAME;
+                html += '<option value="'+stgId+'"'+((t.status_id==stgId)?' selected':'')+'>'+stgName+'</option>';
+            }
+            html += '</select></td>';
+            // Termin - Inline Date Input
+            html += '<td><input type="date" class="pkg-input-inline pkg-date-inline" value="'+(t.deadline||'')+'" onchange="OpsTask.updateDeadline('+t.task_id+',this.value)"></td>';
+            // Öngörülen
+            html += '<td style="font-size:11px;white-space:nowrap">' + estTime + '</td>';
+            // Harcanan
+            html += '<td style="font-size:11px;white-space:nowrap">' + actTime + '</td>';
+            // % - Inline Input (Matrisli görevlerde readonly - matris % değerini gösterir)
+            var hasMatrix = t.has_matrix || t.HAS_MATRIX;
+            var pctValue = t.percent_complete || t.PERCENT_COMPLETE || 0;
+            if(hasMatrix) {
+                html += '<td style="text-align:center"><input type="number" class="pct-input pct-disabled" value="'+pctValue+'" min="0" max="100" readonly disabled title="Matris % değeri"></td>';
+            } else {
+                html += '<td style="text-align:center"><input type="number" class="pct-input" value="'+pctValue+'" min="0" max="100" onchange="OpsTask.updatePercent('+t.task_id+',this.value)"></td>';
+            }
+            // Düzenle
+            html += '<td><a href="javascript:void(0)" onclick="OpsTask.openModal(' + t.task_id + ')"><i class="fa fa-pencil" style="color:grey" title="Düzenle"></i></a></td>';
+            // Dosya Ekle
+            html += '<td><a href="javascript:void(0)" onclick="OpsTask.openDocuments(' + t.task_id + ')"><i class="fa fa-file" style="color:grey" title="Dosya Ekle"></i></a></td>';
+            // Matris (sadece has_matrix=true ise göster)
+            if(t.has_matrix) {
+                html += '<td><a href="javascript:void(0)" onclick="OpsTask.openMatrix(' + t.task_id + ')"><i class="fa fa-th" style="color:#16a34a" title="Üretim Matrisi"></i></a></td>';
+            } else {
+                html += '<td></td>';
+            }
+            // Alt Görev Ekle
+            html += '<td><a href="javascript:void(0)" onclick="OpsTask.openModal(0,' + t.task_id + ')"><i class="fa fa-plus" style="color:grey" title="Alt Görev Ekle"></i></a></td>';
+            // Sil
+            html += '<td><a href="javascript:void(0)" onclick="OpsTask.deleteTask(' + t.task_id + ')"><i class="fa fa-minus" style="color:grey" title="Sil"></i></a></td>';
+            html += '</tr>';
+        }
+        tbody.innerHTML = html;
+        this.initDragDrop();
+    },
+    
+    initDragDrop: function(){
+        var self = this;
+        var tbody = document.getElementById('ops_task_tbody');
+        var rows = tbody.querySelectorAll('.ops-task-row');
+        var draggedRow = null;
+        
+        rows.forEach(function(row){
+            row.addEventListener('dragstart', function(e){
+                draggedRow = this;
+                this.style.opacity = '0.4';
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            row.addEventListener('dragend', function(){
+                this.style.opacity = '1';
+                rows.forEach(function(r){ r.classList.remove('drag-over'); });
+            });
+            row.addEventListener('dragover', function(e){
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            row.addEventListener('dragenter', function(){
+                this.classList.add('drag-over');
+            });
+            row.addEventListener('dragleave', function(){
+                this.classList.remove('drag-over');
+            });
+            row.addEventListener('drop', function(e){
+                e.preventDefault();
+                if(draggedRow !== this){
+                    var allRows = Array.from(tbody.querySelectorAll('.ops-task-row'));
+                    var draggedIdx = allRows.indexOf(draggedRow);
+                    var targetIdx = allRows.indexOf(this);
+                    if(draggedIdx < targetIdx){
+                        this.parentNode.insertBefore(draggedRow, this.nextSibling);
+                    } else {
+                        this.parentNode.insertBefore(draggedRow, this);
+                    }
+                    self.saveSortOrder();
+                }
+            });
+        });
+    },
+    
+    saveSortOrder: function(){
+        var tbody = document.getElementById('ops_task_tbody');
+        var rows = tbody.querySelectorAll('.ops-task-row');
+        var taskIds = [];
+        rows.forEach(function(row){
+            taskIds.push(row.getAttribute('data-task-id'));
+        });
+        
+        var formData = new FormData();
+        formData.append('action', 'update_sort_order');
+        formData.append('task_ids', taskIds.join(','));
+        
+        fetch(this.config.ajaxUrl, { method: 'POST', body: formData })
+        .then(function(r){ return r.json(); })
+        .then(function(response){
+            if(!response.success){
+                console.error('Sıralama kaydedilemedi:', response.message);
+            }
+        });
+    },
+    
+    openModal: function(taskId){
+        taskId = taskId || 0;
+        var url = this.config.taskFormUrl + '?task_id=' + taskId + '&ref_type=' + this.config.refType + '&ref_id=' + this.config.refId + '&company_id=' + this.config.companyId;
+        
+        // Bootstrap modal ile aç (en güvenilir yol)
+        this.showFormInModal(url, taskId);
+    },
+    
+    showFormInModal: function(url, taskId){
+        var self = this;
+        var modalId = 'ops_task_form_modal';
+        var existing = document.getElementById(modalId);
+        if(existing) existing.remove();
+        
+        // Vanilla JS modal (jQuery bağımsız)
+        var overlay = document.createElement('div');
+        overlay.id = modalId;
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+        
+        var box = document.createElement('div');
+        box.style.cssText = 'background:#fff;width:577px;max-width:95vw;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3);';
+        
+        var body = document.createElement('div');
+        body.id = 'ops_task_form_body';
+        body.style.cssText = 'max-height:90vh;overflow:auto;';
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa fa-spinner fa-spin fa-2x"></i><br><br>Yükleniyor...</div>';
+        
+        box.appendChild(body);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+        
+        // Overlay tıklama ile kapatma DEVRE DIŞI - sadece X ve İptal butonu ile kapanır
+        // overlay.addEventListener('click', function(e){ if(e.target === overlay){ overlay.remove(); self.loadList(); } });
+        
+        // Formu yükle
+        fetch(url).then(function(r){ return r.text(); }).then(function(html){
+            body.innerHTML = html;
+            var scripts = body.querySelectorAll('script');
+            scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
+        }).catch(function(err){
+            body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
+        });
+    },
+    
+    deleteTask: function(taskId){
+        var self = this;
+        var formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('task_id', taskId);
+        fetch(this.config.ajaxUrl, { method: 'POST', body: formData })
+        .then(function(r){ return r.json(); })
+        .then(function(resp){ if(resp.success) self.loadList(); else alert(resp.message); });
+    },
+    
+    updateStatus: function(taskId, statusId, selectEl){
+        var self = this;
+        
+        // Görev bilgisini bul
+        var task = this.tasks.find(function(t) { return t.task_id == taskId; });
+        var hasMatrix = task && (task.has_matrix || task.HAS_MATRIX);
+        var currentPercent = task ? (task.percent_complete || task.PERCENT_COMPLETE || 0) : 0;
+        
+        // Matrisli görev için Tamamlandı (2364) kontrolü
+        if(hasMatrix && (statusId == '2364')) {
+            // Matris %100 değilse Tamamlandı'ya çekilemez
+            if(currentPercent < 100) {
+                alert('Üretim Matrisi %100 tamamlanmadan bu görev Tamamlandı olarak işaretlenemez!');
+                if(selectEl) selectEl.value = task.status_id || task.STATUS_ID || '';
+                return;
+            }
+        }
+        
+        var fd = new FormData();
+        fd.append('action', 'update_status');
+        fd.append('task_id', taskId);
+        fd.append('status_id', statusId);
+        
+        // Matris YOKSA ve Tamamlandı/Onaylandı seçilince % otomatik 100 yap
+        if(!hasMatrix && (statusId == '2364' || statusId == '6')) {
+            fd.append('percent_complete', 100);
+            // Aynı satırdaki % input'u da güncelle
+            var row = selectEl ? selectEl.closest('tr') : null;
+            if(row) {
+                var pctInput = row.querySelector('input[type="number"]');
+                if(pctInput) pctInput.value = 100;
+            }
+        }
+        
+        fetch(this.config.ajaxUrl, {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){ if(!resp.success) alert(resp.message || 'Hata'); });
+    },
+    
+    updateDeadline: function(taskId, deadline){
+        var fd = new FormData();
+        fd.append('action', 'update_deadline');
+        fd.append('task_id', taskId);
+        fd.append('deadline', deadline);
+        fetch(this.config.ajaxUrl, {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){ if(!resp.success) alert(resp.message || 'Hata'); });
+    },
+    
+    updatePercent: function(taskId, percent){
+        var fd = new FormData();
+        fd.append('action', 'update_percent');
+        fd.append('task_id', taskId);
+        fd.append('percent_complete', percent);
+        fetch(this.config.ajaxUrl, {method:'POST', body:fd})
+        .then(function(r){ return r.json(); })
+        .then(function(resp){ if(!resp.success) alert(resp.message || 'Hata'); });
+    },
+    
+    openDocuments: function(taskId){
+        var url = 'index.cfm?fuseaction=asset.list_asset&event=add&module=sales&module_id=1&action=OPS_TASK&action_id=' + taskId + '&asset_cat_id=-21&action_type=0';
+        var existing = document.getElementById('taskDocOverlay');
+        if(existing) existing.remove();
+        
+        var overlay = document.createElement('div');
+        overlay.id = 'taskDocOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+        
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background:white;width:90%;max-width:900px;height:80%;max-height:700px;border-radius:8px;overflow:hidden;position:relative;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);display:flex;flex-direction:column;';
+        
+        var header = document.createElement('div');
+        header.style.cssText = 'background:linear-gradient(180deg,#00b4b4 0%,#009999 100%);color:white;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;';
+        header.innerHTML = '<span style="font-weight:600;font-size:14px;"><i class="fa fa-file"></i> Dosya Yükle</span>';
+        
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = 'font-size:22px;background:none;border:none;cursor:pointer;color:white;padding:0 8px;line-height:1;';
+        closeBtn.onclick = function(){ overlay.remove(); };
+        header.appendChild(closeBtn);
+        
+        var iframeWrapper = document.createElement('div');
+        iframeWrapper.style.cssText = 'flex:1;overflow:hidden;position:relative;';
+        
+        var iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.style.cssText = 'width:100%;height:calc(100% + 330px);border:none;position:absolute;top:-330px;left:0;';
+        
+        iframeWrapper.appendChild(iframe);
+        modal.appendChild(header);
+        modal.appendChild(iframeWrapper);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    },
+    
+    openMatrix: function(taskId){
+        var url = '/V16/sales/form/dsp_ops_task_matrix.cfm?task_id=' + taskId + '&ref_type=' + this.config.refType + '&ref_id=' + this.config.refId;
+        var self = this;
+        var existing = document.getElementById('taskMatrixOverlay');
+        if(existing) existing.remove();
+        
+        var overlay = document.createElement('div');
+        overlay.id = 'taskMatrixOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+        
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background:white;width:90%;max-width:800px;max-height:90vh;border-radius:8px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);';
+        
+        var body = document.createElement('div');
+        body.style.cssText = 'max-height:90vh;overflow:auto;';
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa fa-spinner fa-spin fa-2x"></i><br><br>Matris yükleniyor...</div>';
+        
+        modal.appendChild(body);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        fetch(url).then(function(r){ return r.text(); }).then(function(html){
+            body.innerHTML = html;
+            var scripts = body.querySelectorAll('script');
+            scripts.forEach(function(s){ if(s.textContent) try { eval(s.textContent); } catch(e){ console.error(e); } });
+        }).catch(function(err){
+            body.innerHTML = '<div style="color:red;padding:20px;">Hata: ' + err.message + '</div>';
+        });
+    },
+    
+    openWizard: async function(){
+        var self = this;
+        // Görevler: Sevk tarihinden geriye doğru gün farkı (negatif = sevkten önce)
+        var tasks = [
+            {head:'SİPARİŞ ONAYI', days:-45},
+            {head:'AVANS / ÖDEME ONAY', days:-44},
+            {head:'KEŞİF DURUMU', days:-42},
+            {head:'ÖN TASARIM', days:-40},
+            {head:'ÖN TASARIM MÜŞTERİ ONAYI', days:-38},
+            {head:'DETAY TASARIM', days:-35},
+            {head:'İMALAT RESİMLERİ', days:-32},
+            {head:'KESİM BÜKÜM LİSTELERİ', days:-30},
+            {head:'ÜRÜN AĞACI', days:-28},
+            {head:'SEVKİYAT CHECKLİST', days:-25},
+            {head:'ELEKTRİK ÜRÜN AĞACI', days:-22},
+            {head:'MEKANİK ÜRÜN AĞACI', days:-20},
+            {head:'TEDARİK SÜRECİ', days:-15},
+            {head:'ÜRETİM SÜRECİ', days:-10},
+            {head:'MONTAJ SÜRECİ', days:-5},
+            {head:'SEVKİYAT', days:0},
+            {head:'SAHA MONTAJ', days:5}
+        ];
+        // Sevk tarihi varsa onu kullan, yoksa bugünü kullan
+        var baseDate = this.config.shipDate ? new Date(this.config.shipDate) : new Date();
+        var created = 0;
+        
+        for(var i=0; i<tasks.length; i++){
+            var t = tasks[i];
+            var d = new Date(baseDate);
+            d.setDate(d.getDate() + t.days);
+            var deadline = d.toISOString().split('T')[0];
+            
+            var fd = new FormData();
+            fd.append('action', 'save');
+            fd.append('task_head', t.head);
+            fd.append('ref_type', this.config.refType);
+            fd.append('ref_id', this.config.refId);
+            fd.append('deadline', deadline);
+            fd.append('priority_id', '2');
+            fd.append('assigned_emp_id', this.config.employeeId);
+            fd.append('company_id', this.config.companyId);
+            
+            try {
+                var resp = await fetch(this.config.ajaxUrl, {method:'POST', body:fd});
+                var json = await resp.json();
+                if(json.success) created++;
+            } catch(e){}
+        }
+        
+        self.loadList();
+    }
+};
+</script>

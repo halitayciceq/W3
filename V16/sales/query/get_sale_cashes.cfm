@@ -1,0 +1,15 @@
+<cfquery name="control_cashes" datasource="#dsn3#">
+	SELECT 
+		ORDER_CASH_POS.KASA_ID,
+		CASH_ACTIONS.*
+	FROM
+		ORDERS,
+		ORDER_CASH_POS,
+		#dsn2_alias#.CASH_ACTIONS CASH_ACTIONS
+	WHERE
+		CASH_ACTIONS.ACTION_ID=ORDER_CASH_POS.CASH_ID
+		AND ORDER_CASH_POS.ORDER_ID=ORDERS.ORDER_ID 
+		AND ORDERS.ORDER_ID=#attributes.order_id#
+		AND ORDER_CASH_POS.KASA_PERIOD_ID = #session.ep.period_id#
+		AND ORDER_CASH_POS.IS_CANCEL = 0 
+</cfquery>
